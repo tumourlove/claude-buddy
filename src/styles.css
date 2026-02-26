@@ -78,3 +78,50 @@ html, body {
   width: 80px;
   accent-color: #e8a44a;
 }
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.state-change {
+  animation: bounce 0.3s ease;
+}
+
+#about-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 2000;
+  -webkit-app-region: no-drag;
+  cursor: pointer;
+}
+
+.about-box {
+  text-align: center;
+  color: #e8a44a;
+  font-family: 'Consolas', monospace;
+}
+
+.about-box pre {
+  font-size: 14px;
+  margin-bottom: 8px;
+  color: #f0c040;
+}
+
+.about-box p {
+  font-size: 11px;
+  margin: 4px 0;
+}
+
+.about-close {
+  opacity: 0.5;
+  font-size: 10px !important;
+  margin-top: 12px !important;
+}

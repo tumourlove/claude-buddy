@@ -16,6 +16,8 @@ window.claude.getPrefs().then(prefs => {
 // Play sounds on state changes
 engine.onStateChange = (state) => {
   sounds.playForState(state);
+  buddyEl.classList.add('state-change');
+  setTimeout(() => buddyEl.classList.remove('state-change'), 300);
 };
 
 // Dragging support
@@ -72,6 +74,7 @@ function showContextMenu(prefs) {
       <input type="range" min="0" max="100" value="${Math.round((prefs.volume || 0.2) * 100)}" id="vol-slider">
     </div>
     <div class="ctx-separator"></div>
+    <div class="ctx-item" data-action="about">About</div>
     <div class="ctx-item" data-action="close">Close</div>
   `;
   document.body.appendChild(menu);
@@ -105,6 +108,20 @@ function showContextMenu(prefs) {
       case 'toggle-mute':
         await window.claude.savePrefs({ muted: !prefs.muted });
         sounds.setMuted(!prefs.muted);
+        break;
+      case 'about':
+        // Show a brief about overlay
+        const about = document.createElement('div');
+        about.id = 'about-overlay';
+        about.innerHTML = `
+          <div class="about-box">
+            <pre>Claude Buddy v1.0</pre>
+            <p>Your desktop companion ♥</p>
+            <p class="about-close">click to close</p>
+          </div>
+        `;
+        about.addEventListener('click', () => about.remove());
+        document.body.appendChild(about);
         break;
       case 'close':
         await window.claude.closeApp();
