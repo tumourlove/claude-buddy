@@ -1,8 +1,22 @@
 import { AnimationEngine } from './animation-engine.js';
+import { SoundSystem } from './sounds.js';
 
 const buddyEl = document.getElementById('buddy');
 const engine = new AnimationEngine(buddyEl);
 engine.start();
+
+const sounds = new SoundSystem();
+
+// Load sound preferences
+window.claude.getPrefs().then(prefs => {
+  sounds.setVolume(prefs.volume ?? 0.2);
+  sounds.setMuted(prefs.muted ?? false);
+});
+
+// Play sounds on state changes
+engine.onStateChange = (state) => {
+  sounds.playForState(state);
+};
 
 // Dragging support
 let isDragging = false;
@@ -90,6 +104,7 @@ function showContextMenu(prefs) {
         break;
       case 'toggle-mute':
         await window.claude.savePrefs({ muted: !prefs.muted });
+        sounds.setMuted(!prefs.muted);
         break;
       case 'close':
         await window.claude.closeApp();
@@ -101,7 +116,9 @@ function showContextMenu(prefs) {
   const slider = document.getElementById('vol-slider');
   if (slider) {
     slider.addEventListener('input', async (e) => {
-      await window.claude.savePrefs({ volume: parseInt(e.target.value) / 100 });
+      const vol = parseInt(e.target.value) / 100;
+      await window.claude.savePrefs({ volume: vol });
+      sounds.setVolume(vol);
     });
     slider.addEventListener('mousedown', (e) => e.stopPropagation());
   }
