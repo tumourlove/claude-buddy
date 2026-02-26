@@ -30,6 +30,10 @@ document.addEventListener('mouseup', () => {
   isDragging = false;
 });
 
+window.addEventListener('blur', () => {
+  isDragging = false;
+});
+
 // Right-click context menu
 document.addEventListener('contextmenu', async (e) => {
   e.preventDefault();
@@ -62,6 +66,15 @@ function showContextMenu(prefs) {
   menu.style.left = '10px';
   menu.style.top = '10px';
 
+  const closeMenuHandler = () => {
+    if (document.body.contains(menu)) menu.remove();
+    document.removeEventListener('click', handleOutsideClick);
+  };
+
+  const handleOutsideClick = (e) => {
+    if (!menu.contains(e.target)) closeMenuHandler();
+  };
+
   menu.addEventListener('click', async (e) => {
     const action = e.target.dataset.action;
     if (!action) return;
@@ -82,7 +95,7 @@ function showContextMenu(prefs) {
         await window.claude.closeApp();
         break;
     }
-    menu.remove();
+    closeMenuHandler();
   });
 
   const slider = document.getElementById('vol-slider');
@@ -93,14 +106,7 @@ function showContextMenu(prefs) {
     slider.addEventListener('mousedown', (e) => e.stopPropagation());
   }
 
-  setTimeout(() => {
-    document.addEventListener('click', function closeMenu(e) {
-      if (!menu.contains(e.target)) {
-        menu.remove();
-        document.removeEventListener('click', closeMenu);
-      }
-    });
-  }, 100);
+  document.addEventListener('click', handleOutsideClick);
 }
 
 // Scroll wheel to resize
