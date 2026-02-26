@@ -36,20 +36,23 @@ class ClaudeDetector {
     }
 
     console.log(`[claude-buddy] Watching logs at: ${this.logsPath}`);
-    const globPattern = path.join(this.logsPath, '**', '*.jsonl');
 
-    this.watcher = chokidar.watch(globPattern, {
+    // Watch the directory itself — glob patterns with ** don't work
+    // reliably on Windows with chokidar
+    this.watcher = chokidar.watch(this.logsPath, {
       ignoreInitial: false,
       usePolling: true,
       interval: 500,
     });
 
     this.watcher.on('change', (filePath) => {
+      if (!filePath.endsWith('.jsonl')) return;
       this._readNewLines(filePath);
     });
 
     this.watcher.on('add', (filePath) => {
-      console.log(`[claude-buddy] Watching: ${filePath}`);
+      if (!filePath.endsWith('.jsonl')) return;
+      console.log(`[claude-buddy] Tracking: ${filePath}`);
       try {
         const stat = fs.statSync(filePath);
         this.filePositions.set(filePath, stat.size);
