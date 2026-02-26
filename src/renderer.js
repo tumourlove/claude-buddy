@@ -115,10 +115,14 @@ function showContextMenu(prefs) {
 
   const slider = document.getElementById('vol-slider');
   if (slider) {
-    slider.addEventListener('input', async (e) => {
+    let volSaveTimeout;
+    slider.addEventListener('input', (e) => {
       const vol = parseInt(e.target.value) / 100;
-      await window.claude.savePrefs({ volume: vol });
       sounds.setVolume(vol);
+      clearTimeout(volSaveTimeout);
+      volSaveTimeout = setTimeout(() => {
+        window.claude.savePrefs({ volume: vol });
+      }, 300);
     });
     slider.addEventListener('mousedown', (e) => e.stopPropagation());
   }
