@@ -39,3 +39,42 @@ html, body {
 .c-dim { color: #a07030; }
 .c-eye { color: #ffffff; text-shadow: 0 0 4px rgba(255, 255, 255, 0.8); }
 .c-spark { color: #fff4d0; text-shadow: 0 0 8px rgba(255, 244, 208, 0.9); }
+
+#ctx-menu {
+  background: rgba(30, 20, 10, 0.92);
+  border: 1px solid #e8a44a;
+  border-radius: 6px;
+  padding: 4px 0;
+  min-width: 150px;
+  z-index: 1000;
+  -webkit-app-region: no-drag;
+}
+
+.ctx-item {
+  padding: 6px 14px;
+  color: #e8a44a;
+  font-family: 'Consolas', monospace;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.ctx-item:hover {
+  background: rgba(232, 164, 74, 0.2);
+}
+
+.ctx-separator {
+  height: 1px;
+  background: #e8a44a44;
+  margin: 4px 0;
+}
+
+.ctx-volume {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ctx-volume input[type="range"] {
+  width: 80px;
+  accent-color: #e8a44a;
+}
