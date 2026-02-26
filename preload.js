@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('claude', {
   setAlwaysOnTop: (value) => ipcRenderer.invoke('set-always-on-top', value),
   setScale: (scale) => ipcRenderer.invoke('set-scale', scale),
   closeApp: () => ipcRenderer.invoke('close-app'),
+  moveWindow: (x, y) => ipcRenderer.invoke('move-window', x, y),
   getClaudeLogsPath: () => ipcRenderer.invoke('get-claude-logs-path'),
   onStateChange: (callback) => {
     ipcRenderer.removeAllListeners('claude-state');
@@ -14,5 +15,9 @@ contextBridge.exposeInMainWorld('claude', {
   onScaleChanged: (callback) => {
     ipcRenderer.removeAllListeners('scale-changed');
     ipcRenderer.on('scale-changed', (_, scale) => callback(scale));
+  },
+  onMoodChange: (callback) => {
+    ipcRenderer.removeAllListeners('claude-mood');
+    ipcRenderer.on('claude-mood', (_, mood) => callback(mood));
   },
 });

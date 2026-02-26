@@ -3,6 +3,7 @@ export class SoundSystem {
     this.ctx = null;
     this.volume = 0.2;
     this.muted = false;
+    this.codingLoopTimer = null;
   }
 
   init() {
@@ -27,18 +28,41 @@ export class SoundSystem {
     return gain;
   }
 
-  // Soft click for coding/typing
-  playTyping() {
+  // Claw click — short percussive sine
+  playClawClick() {
     const g = this._gain(); if (!g) return;
     try {
       const osc = this.ctx.createOscillator();
       osc.type = 'sine';
-      osc.frequency.value = 800 + Math.random() * 400;
-      osc.connect(g);
+      osc.frequency.value = 1200 + Math.random() * 600;
+      const env = this.ctx.createGain();
+      env.gain.setValueAtTime(0.6, this.ctx.currentTime);
+      env.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.025);
+      osc.connect(env);
+      env.connect(g);
       osc.start();
-      osc.stop(this.ctx.currentTime + 0.03);
+      osc.stop(this.ctx.currentTime + 0.025);
       osc.onended = () => osc.disconnect();
     } catch {}
+  }
+
+  // Start continuous clicking loop for coding state
+  startCodingLoop() {
+    this.stopCodingLoop();
+    const tick = () => {
+      this.playClawClick();
+      const delay = 80 + Math.random() * 120;
+      this.codingLoopTimer = setTimeout(tick, delay);
+    };
+    tick();
+  }
+
+  // Stop the clicking loop
+  stopCodingLoop() {
+    if (this.codingLoopTimer) {
+      clearTimeout(this.codingLoopTimer);
+      this.codingLoopTimer = null;
+    }
   }
 
   // Gentle blip for thinking
@@ -117,11 +141,129 @@ export class SoundSystem {
     } catch {}
   }
 
-  // Play sound for state
+  // Low descending tone for frustration
+  playFrustrated() {
+    const g = this._gain(); if (!g) return;
+    try {
+      const osc = this.ctx.createOscillator();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(400, this.ctx.currentTime);
+      osc.frequency.linearRampToValueAtTime(200, this.ctx.currentTime + 0.3);
+      const env = this.ctx.createGain();
+      env.gain.setValueAtTime(0.3, this.ctx.currentTime);
+      env.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.3);
+      osc.connect(env);
+      env.connect(g);
+      osc.start();
+      osc.stop(this.ctx.currentTime + 0.3);
+      osc.onended = () => osc.disconnect();
+    } catch {}
+  }
+
+  // Rising triumphant arpeggio for celebration
+  playCelebrating() {
+    const g = this._gain(); if (!g) return;
+    try {
+      const notes = [523, 659, 784];
+      notes.forEach((freq, i) => {
+        const osc = this.ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        const env = this.ctx.createGain();
+        env.gain.setValueAtTime(0, this.ctx.currentTime + i * 0.1);
+        env.gain.linearRampToValueAtTime(0.4, this.ctx.currentTime + i * 0.1 + 0.05);
+        env.gain.linearRampToValueAtTime(0, this.ctx.currentTime + i * 0.1 + 0.2);
+        osc.connect(env);
+        env.connect(g);
+        osc.start(this.ctx.currentTime + i * 0.1);
+        osc.stop(this.ctx.currentTime + i * 0.1 + 0.2);
+        osc.onended = () => osc.disconnect();
+      });
+    } catch {}
+  }
+
+  // Wobbly confused tone
+  playConfused() {
+    const g = this._gain(); if (!g) return;
+    try {
+      const osc = this.ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(500, this.ctx.currentTime);
+      osc.frequency.setValueAtTime(600, this.ctx.currentTime + 0.08);
+      osc.frequency.setValueAtTime(450, this.ctx.currentTime + 0.16);
+      osc.frequency.setValueAtTime(550, this.ctx.currentTime + 0.24);
+      const env = this.ctx.createGain();
+      env.gain.setValueAtTime(0.3, this.ctx.currentTime);
+      env.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.3);
+      osc.connect(env);
+      env.connect(g);
+      osc.start();
+      osc.stop(this.ctx.currentTime + 0.3);
+      osc.onended = () => osc.disconnect();
+    } catch {}
+  }
+
+  // Quick ascending chirp for excitement
+  playExcited() {
+    const g = this._gain(); if (!g) return;
+    try {
+      const osc = this.ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(600, this.ctx.currentTime);
+      osc.frequency.linearRampToValueAtTime(1200, this.ctx.currentTime + 0.15);
+      const env = this.ctx.createGain();
+      env.gain.setValueAtTime(0.4, this.ctx.currentTime);
+      env.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.2);
+      osc.connect(env);
+      env.connect(g);
+      osc.start();
+      osc.stop(this.ctx.currentTime + 0.2);
+      osc.onended = () => osc.disconnect();
+    } catch {}
+  }
+
+  // Soft low hum for sleepy
+  playSleepy() {
+    const g = this._gain(); if (!g) return;
+    try {
+      const osc = this.ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = 180;
+      const env = this.ctx.createGain();
+      env.gain.setValueAtTime(0.15, this.ctx.currentTime);
+      env.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.5);
+      osc.connect(env);
+      env.connect(g);
+      osc.start();
+      osc.stop(this.ctx.currentTime + 0.5);
+      osc.onended = () => osc.disconnect();
+    } catch {}
+  }
+
+  // Play one-shot sound when mood changes
+  playForMood(mood) {
+    if (!this.ctx) this.init();
+    if (!mood) return;
+    switch (mood) {
+      case 'frustrated': this.playFrustrated(); break;
+      case 'celebrating': this.playCelebrating(); break;
+      case 'confused': this.playConfused(); break;
+      case 'excited': this.playExcited(); break;
+      case 'sleepy': this.playSleepy(); break;
+    }
+  }
+
+  // Play sound for state — starts/stops coding loop as needed
   playForState(state) {
     if (!this.ctx) this.init();
+
+    // Stop coding loop when leaving coding state
+    if (state !== 'coding') {
+      this.stopCodingLoop();
+    }
+
     switch (state) {
-      case 'coding': this.playTyping(); break;
+      case 'coding': this.startCodingLoop(); break;
       case 'thinking': this.playThinking(); break;
       case 'researching': this.playResearching(); break;
       case 'bash': this.playBash(); break;

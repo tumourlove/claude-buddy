@@ -22,23 +22,10 @@ html, body {
 }
 
 #buddy {
-  font-family: 'Consolas', 'Courier New', monospace;
-  font-size: 14px;
-  line-height: 1.2;
-  color: #e8a44a;
-  text-align: center;
-  white-space: pre;
-  text-shadow: 0 0 8px rgba(232, 164, 74, 0.4);
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
 }
-
-.c-amber { color: #e8a44a; }
-.c-orange { color: #d4762c; }
-.c-gold { color: #f0c040; }
-.c-white { color: #fff8e8; }
-.c-glow { color: #ffd080; text-shadow: 0 0 6px rgba(255, 208, 128, 0.6); }
-.c-dim { color: #a07030; }
-.c-eye { color: #ffffff; text-shadow: 0 0 4px rgba(255, 255, 255, 0.8); }
-.c-spark { color: #fff4d0; text-shadow: 0 0 8px rgba(255, 244, 208, 0.9); }
 
 #ctx-menu {
   background: rgba(30, 20, 10, 0.92);

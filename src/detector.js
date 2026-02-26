@@ -1,6 +1,7 @@
 const chokidar = require('chokidar');
 const path = require('path');
 const fs = require('fs');
+const { MoodDetector } = require('./mood-detector.js');
 
 // Tool name to animation state mapping
 const TOOL_MAP = {
@@ -22,9 +23,18 @@ class ClaudeDetector {
     this.logsPath = logsPath;
     this.watcher = null;
     this.onState = null;
+    this.onConnected = null;
+    this.onMood = null;
+    this.moodDetector = new MoodDetector();
+    this.moodDetector.onMood = (mood) => {
+      if (this.onMood) this.onMood(mood);
+    };
     this.lastActivity = 0;
     this.idleTimeout = 10000; // 10s no activity = idle
+    this.connectedTimeout = 30000; // 30s no activity = disconnected
     this.idleTimer = null;
+    this.connectedTimer = null;
+    this.isConnected = false;
     this.filePositions = new Map();
   }
 
@@ -90,6 +100,7 @@ class ClaudeDetector {
   _parseLine(line) {
     try {
       const entry = JSON.parse(line);
+      this.moodDetector.analyzeEntry(entry);
       const content = entry?.message?.content;
       if (!Array.isArray(content)) {
         // User message = listening
@@ -118,7 +129,21 @@ class ClaudeDetector {
   _emitState(state) {
     this.lastActivity = Date.now();
     this._resetIdleTimer();
+    this._setConnected(true);
     if (this.onState) this.onState(state);
+  }
+
+  _setConnected(connected) {
+    if (connected) {
+      if (this.connectedTimer) clearTimeout(this.connectedTimer);
+      this.connectedTimer = setTimeout(() => {
+        this._setConnected(false);
+      }, this.connectedTimeout);
+    }
+    if (connected !== this.isConnected) {
+      this.isConnected = connected;
+      if (this.onConnected) this.onConnected(connected);
+    }
   }
 
   _resetIdleTimer() {
@@ -131,6 +156,8 @@ class ClaudeDetector {
   stop() {
     if (this.watcher) this.watcher.close();
     if (this.idleTimer) clearTimeout(this.idleTimer);
+    if (this.connectedTimer) clearTimeout(this.connectedTimer);
+    if (this.moodDetector) this.moodDetector.stop();
   }
 }
 

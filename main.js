@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, Menu, Tray, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { ClaudeDetector } = require('./src/detector.js');
+const { TrayManager } = require('./src/tray-manager.js');
 
 const PREFS_PATH = path.join(app.getPath('userData'), 'preferences.json');
 
@@ -20,13 +21,14 @@ function savePrefs(prefs) {
 let mainWindow;
 let prefs;
 let detector;
+let trayManager;
 
 function createWindow() {
   prefs = loadPrefs();
 
   const { width: screenW, height: screenH } = screen.getPrimaryDisplay().workAreaSize;
-  const winW = Math.round(250 * prefs.scale);
-  const winH = Math.round(300 * prefs.scale);
+  const winW = Math.round(160 * prefs.scale);
+  const winH = Math.round(160 * prefs.scale);
 
   mainWindow = new BrowserWindow({
     width: winW,
@@ -61,7 +63,18 @@ function createWindow() {
       mainWindow.webContents.send('claude-state', state);
     }
   };
+  detector.onConnected = (connected) => {
+    if (trayManager) trayManager.updateIcon(connected);
+  };
+  detector.onMood = (mood) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('claude-mood', mood);
+    }
+  };
   detector.start();
+
+  // Create system tray
+  trayManager = new TrayManager(mainWindow);
 
   mainWindow.on('moved', () => {
     const [x, y] = mainWindow.getPosition();
@@ -70,14 +83,27 @@ function createWindow() {
     savePrefs(prefs);
   });
 
+  mainWindow.on('close', (e) => {
+    if (!mainWindow._forceQuit) {
+      e.preventDefault();
+      mainWindow.hide();
+    }
+  });
+
   mainWindow.on('closed', () => {
     if (detector) detector.stop();
+    if (trayManager) trayManager.destroy();
     mainWindow = null;
   });
 }
 
 app.whenReady().then(createWindow);
-app.on('window-all-closed', () => app.quit());
+app.on('window-all-closed', (e) => {
+  // Don't quit when window is hidden — tray keeps app alive
+});
+app.on('before-quit', () => {
+  if (mainWindow) mainWindow._forceQuit = true;
+});
 
 ipcMain.handle('get-prefs', () => prefs);
 ipcMain.handle('save-prefs', (_, newPrefs) => {
@@ -92,14 +118,19 @@ ipcMain.handle('set-always-on-top', (_, value) => {
 });
 ipcMain.handle('set-scale', (_, scale) => {
   prefs.scale = scale;
-  const winW = Math.round(250 * scale);
-  const winH = Math.round(300 * scale);
+  const winW = Math.round(160 * scale);
+  const winH = Math.round(160 * scale);
   mainWindow.setResizable(true);
   mainWindow.setSize(winW, winH);
   mainWindow.webContents.send('scale-changed', scale);
   savePrefs(prefs);
 });
 ipcMain.handle('close-app', () => { app.quit(); });
+ipcMain.handle('move-window', (_, x, y) => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.setPosition(Math.round(x), Math.round(y));
+  }
+});
 ipcMain.handle('get-claude-logs-path', () => {
   const home = require('os').homedir();
   return path.join(home, '.claude', 'projects');

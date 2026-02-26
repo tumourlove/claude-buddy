@@ -20,25 +20,24 @@ engine.onStateChange = (state) => {
   setTimeout(() => buddyEl.classList.remove('state-change'), 300);
 };
 
-// Dragging support
+// Dragging support — uses IPC to move window via main process
+// so it works across monitor boundaries
 let isDragging = false;
-let dragStartX, dragStartY;
+let dragOffsetX, dragOffsetY;
 
 document.addEventListener('mousedown', (e) => {
   if (e.button === 0) {
     isDragging = true;
-    dragStartX = e.screenX;
-    dragStartY = e.screenY;
+    dragOffsetX = e.clientX;
+    dragOffsetY = e.clientY;
   }
 });
 
 document.addEventListener('mousemove', (e) => {
   if (isDragging) {
-    const dx = e.screenX - dragStartX;
-    const dy = e.screenY - dragStartY;
-    dragStartX = e.screenX;
-    dragStartY = e.screenY;
-    window.moveBy(dx, dy);
+    const newX = e.screenX - dragOffsetX;
+    const newY = e.screenY - dragOffsetY;
+    window.claude.moveWindow(newX, newY);
   }
 });
 
@@ -160,14 +159,20 @@ window.claude.onStateChange((state) => {
   engine.setState(state);
 });
 
-// Scale font size when window resizes
+// Listen for mood changes
+window.claude.onMoodChange((mood) => {
+  engine.setMood(mood);
+  sounds.playForMood(mood);
+});
+
+// Scale canvas when window resizes
 window.claude.onScaleChanged((scale) => {
-  buddyEl.style.fontSize = Math.round(14 * scale) + 'px';
+  engine.setScale(Math.round(4 * scale));
 });
 
 // Apply initial scale
 window.claude.getPrefs().then(prefs => {
   if (prefs.scale && prefs.scale !== 1) {
-    buddyEl.style.fontSize = Math.round(14 * prefs.scale) + 'px';
+    engine.setScale(Math.round(4 * prefs.scale));
   }
 });
