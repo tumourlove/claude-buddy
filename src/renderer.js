@@ -117,5 +117,7 @@ document.addEventListener('wheel', async (e) => {
   await window.claude.setScale(newScale);
 });
 
-// Export engine for detector to use
-window._buddyEngine = engine;
+// Listen for Claude Code state changes from main process
+window.claude.onStateChange((state) => {
+  engine.setState(state);
+});

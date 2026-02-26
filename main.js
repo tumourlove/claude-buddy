@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, Menu, Tray, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { ClaudeDetector } = require('./src/detector.js');
 
 const PREFS_PATH = path.join(app.getPath('userData'), 'preferences.json');
 
@@ -18,6 +19,7 @@ function savePrefs(prefs) {
 
 let mainWindow;
 let prefs;
+let detector;
 
 function createWindow() {
   prefs = loadPrefs();
@@ -48,6 +50,17 @@ function createWindow() {
   mainWindow.setVisibleOnAllWorkspaces(true);
   mainWindow.setIgnoreMouseEvents(false);
 
+  // Start Claude Code log detector
+  const home = require('os').homedir();
+  const logsPath = path.join(home, '.claude', 'projects');
+  detector = new ClaudeDetector(logsPath);
+  detector.onState = (state) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('claude-state', state);
+    }
+  };
+  detector.start();
+
   mainWindow.on('moved', () => {
     const [x, y] = mainWindow.getPosition();
     prefs.x = x;
@@ -55,7 +68,10 @@ function createWindow() {
     savePrefs(prefs);
   });
 
-  mainWindow.on('closed', () => { mainWindow = null; });
+  mainWindow.on('closed', () => {
+    if (detector) detector.stop();
+    mainWindow = null;
+  });
 }
 
 app.whenReady().then(createWindow);
