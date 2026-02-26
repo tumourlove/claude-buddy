@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('claude', {
   closeApp: () => ipcRenderer.invoke('close-app'),
   getClaudeLogsPath: () => ipcRenderer.invoke('get-claude-logs-path'),
   onStateChange: (callback) => {
+    ipcRenderer.removeAllListeners('claude-state');
     ipcRenderer.on('claude-state', (_, state) => callback(state));
   },
 });

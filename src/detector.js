@@ -29,6 +29,10 @@ class ClaudeDetector {
   }
 
   start() {
+    if (!fs.existsSync(this.logsPath)) {
+      console.warn(`Claude logs path not found: ${this.logsPath}`);
+    }
+
     const globPattern = path.join(this.logsPath, '**', '*.jsonl');
 
     this.watcher = chokidar.watch(globPattern, {
