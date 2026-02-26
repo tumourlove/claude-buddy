@@ -159,3 +159,15 @@ document.addEventListener('wheel', async (e) => {
 window.claude.onStateChange((state) => {
   engine.setState(state);
 });
+
+// Scale font size when window resizes
+window.claude.onScaleChanged((scale) => {
+  buddyEl.style.fontSize = Math.round(14 * scale) + 'px';
+});
+
+// Apply initial scale
+window.claude.getPrefs().then(prefs => {
+  if (prefs.scale && prefs.scale !== 1) {
+    buddyEl.style.fontSize = Math.round(14 * prefs.scale) + 'px';
+  }
+});

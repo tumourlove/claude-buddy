@@ -11,4 +11,8 @@ contextBridge.exposeInMainWorld('claude', {
     ipcRenderer.removeAllListeners('claude-state');
     ipcRenderer.on('claude-state', (_, state) => callback(state));
   },
+  onScaleChanged: (callback) => {
+    ipcRenderer.removeAllListeners('scale-changed');
+    ipcRenderer.on('scale-changed', (_, scale) => callback(scale));
+  },
 });

@@ -30,14 +30,18 @@ class ClaudeDetector {
 
   start() {
     if (!fs.existsSync(this.logsPath)) {
-      console.warn(`Claude logs path not found: ${this.logsPath}`);
+      console.warn(`[claude-buddy] Logs path not found: ${this.logsPath}`);
+      this._resetIdleTimer();
+      return;
     }
 
+    console.log(`[claude-buddy] Watching logs at: ${this.logsPath}`);
     const globPattern = path.join(this.logsPath, '**', '*.jsonl');
 
     this.watcher = chokidar.watch(globPattern, {
-      ignoreInitial: true,
-      awaitWriteFinish: { stabilityThreshold: 200, pollInterval: 100 },
+      ignoreInitial: false,
+      usePolling: true,
+      interval: 500,
     });
 
     this.watcher.on('change', (filePath) => {
@@ -45,11 +49,15 @@ class ClaudeDetector {
     });
 
     this.watcher.on('add', (filePath) => {
+      console.log(`[claude-buddy] Watching: ${filePath}`);
       try {
         const stat = fs.statSync(filePath);
         this.filePositions.set(filePath, stat.size);
       } catch {}
-      this._emitState('listening');
+    });
+
+    this.watcher.on('error', (err) => {
+      console.error(`[claude-buddy] Watcher error:`, err);
     });
 
     this._resetIdleTimer();

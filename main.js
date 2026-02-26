@@ -36,7 +36,9 @@ function createWindow() {
     transparent: true,
     frame: false,
     alwaysOnTop: prefs.alwaysOnTop !== false,
-    resizable: false,
+    resizable: true,
+    minimizable: false,
+    maximizable: false,
     skipTaskbar: true,
     hasShadow: false,
     webPreferences: {
@@ -92,7 +94,9 @@ ipcMain.handle('set-scale', (_, scale) => {
   prefs.scale = scale;
   const winW = Math.round(250 * scale);
   const winH = Math.round(300 * scale);
+  mainWindow.setResizable(true);
   mainWindow.setSize(winW, winH);
+  mainWindow.webContents.send('scale-changed', scale);
   savePrefs(prefs);
 });
 ipcMain.handle('close-app', () => { app.quit(); });
