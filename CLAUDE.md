@@ -57,7 +57,9 @@ The scene renders a diamond-shaped isometric room with:
 - Character sprites: 96×96 PNG files in `assets/sprites/`
 - Static rotations: `clawd-sw.png`, `clawd-se.png` (west/east facing)
 - Animations: `assets/sprites/animations/{name}/{direction}/frame_NNN.png`
-- Available animations: breathing-idle (4 frames), walking (6), pushing (6), picking-up (5), drinking (6)
+- Available animations: breathing-idle (4 frames), walking (6)
+- Walking animations play automatically when the character moves between stations
+- Thought bubbles with emoji appear above the character on state changes (💻 coding, 📖 researching, ⚡ bash, 💭 thinking, 👂 listening, 😴 idle)
 - Scene tiles: `assets/scene/` — floor-tile.png (isometric), furniture props (isometric blocks)
 - Animation pool: multiple variants per state, randomly selected to avoid repetition (30% swap chance per loop)
 

@@ -31,20 +31,20 @@ const ROOM = {
 // The character will stand next to the linked furniture piece.
 const STATION_CONFIG = {
   coding:      { furniture: 'workbench',  direction: 'se', offsetX: -30, offsetY: 40 },
-  researching: { furniture: 'bookshelf',  direction: 'sw', offsetX: 30,  offsetY: 40 },
-  bash:        { furniture: 'terminal',   direction: 'se', offsetX: -30, offsetY: 40 },
+  researching: { furniture: 'bookshelf',  direction: 'n',  offsetX: 30,  offsetY: 40 },
+  bash:        { furniture: 'terminal',   direction: 's',  offsetX: -30, offsetY: 40 },
   thinking:    { furniture: 'armchair',   direction: 'sw', offsetX: 30,  offsetY: 40 },
-  listening:   { furniture: 'stool',      direction: 'sw', offsetX: 30,  offsetY: 30 },
+  listening:   { furniture: 'stool',      direction: 's',  offsetX: 30,  offsetY: 30 },
   idle:        { furniture: 'hammock',    direction: 'se', offsetX: -20, offsetY: 40 },
 };
 
 // Fallback static positions (used before furniture is registered)
 const STATIONS = {
   coding:      { x: 280, y: 270, direction: 'se' },
-  researching: { x: 170, y: 210, direction: 'sw' },
-  bash:        { x: 310, y: 205, direction: 'se' },
+  researching: { x: 170, y: 210, direction: 'n' },
+  bash:        { x: 310, y: 205, direction: 's' },
   thinking:    { x: 180, y: 270, direction: 'sw' },
-  listening:   { x: 210, y: 310, direction: 'sw' },
+  listening:   { x: 210, y: 310, direction: 's' },
   idle:        { x: 240, y: 310, direction: 'se' },
 };
 
@@ -87,6 +87,10 @@ class SceneEngine {
     this.targetX = this.charX;
     this.targetY = this.charY;
     this.tweenSpeed = 1.5; // pixels per frame (~90px/sec at 60fps)
+    this.isMoving = false; // true while tweening to target
+
+    // Thought bubble
+    this.thoughtBubble = null; // { emoji, opacity, timer }
 
     // Callbacks
     this.onRenderEffects = null;
@@ -221,8 +225,20 @@ class SceneEngine {
 
   /**
    * Get the currently active animation variant for the current state.
+   * Uses walking animation when the character is moving between stations.
    */
   _currentVariant() {
+    // Use walking animation while moving (supports n, s, se, sw)
+    if (this.isMoving) {
+      const walkKey = `walking-${this.charDirection}`;
+      const walkVariants = this.animationPool.get(walkKey);
+      if (walkVariants && walkVariants.length > 0) return walkVariants[0];
+      // Fallback: try east/west if exact direction not registered
+      const fallback = (this.charDirection === 'n' || this.charDirection === 'sw') ? 'walking-sw' : 'walking-se';
+      const fbVariants = this.animationPool.get(fallback);
+      if (fbVariants && fbVariants.length > 0) return fbVariants[0];
+    }
+
     const variants = this.animationPool.get(this.currentState);
     if (!variants || variants.length === 0) return null;
     const idx = this.activeVariant.get(this.currentState) ?? 0;
@@ -249,6 +265,81 @@ class SceneEngine {
     return STATIONS[state] || { x: 240, y: 260, direction: 'se' };
   }
 
+  // ── Thought bubble ──────────────────────────────────────────────────
+
+  static THOUGHT_EMOJIS = {
+    coding:      '💻',
+    researching: '📖',
+    bash:        '⚡',
+    thinking:    '💭',
+    listening:   '👂',
+    idle:        '😴',
+  };
+
+  _showThoughtBubble(state) {
+    const emoji = SceneEngine.THOUGHT_EMOJIS[state];
+    if (!emoji) return;
+    this.thoughtBubble = { emoji, opacity: 1.0, timer: 120 }; // ~2 sec at 60fps
+  }
+
+  _updateThoughtBubble() {
+    if (!this.thoughtBubble) return;
+    this.thoughtBubble.timer--;
+    if (this.thoughtBubble.timer <= 0) {
+      this.thoughtBubble.opacity -= 0.03;
+      if (this.thoughtBubble.opacity <= 0) {
+        this.thoughtBubble = null;
+      }
+    }
+  }
+
+  _drawThoughtBubble() {
+    if (!this.thoughtBubble) return;
+    const ctx = this.ctx;
+    const { emoji, opacity } = this.thoughtBubble;
+
+    ctx.save();
+    ctx.globalAlpha = opacity;
+
+    // Position above character head
+    const bx = this.charX + 20;
+    const by = this.charY - 52;
+
+    // Small bubble trail
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+    ctx.beginPath();
+    ctx.arc(this.charX + 6, this.charY - 36, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(this.charX + 12, this.charY - 42, 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Main bubble background
+    const bw = 24;
+    const bh = 22;
+    ctx.beginPath();
+    const r = 8;
+    ctx.moveTo(bx - bw / 2 + r, by - bh / 2);
+    ctx.arcTo(bx + bw / 2, by - bh / 2, bx + bw / 2, by + bh / 2, r);
+    ctx.arcTo(bx + bw / 2, by + bh / 2, bx - bw / 2, by + bh / 2, r);
+    ctx.arcTo(bx - bw / 2, by + bh / 2, bx - bw / 2, by - bh / 2, r);
+    ctx.arcTo(bx - bw / 2, by - bh / 2, bx + bw / 2, by - bh / 2, r);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Emoji
+    ctx.font = '14px serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#000';
+    ctx.fillText(emoji, bx, by);
+
+    ctx.restore();
+  }
+
   setState(state) {
     if (state === this.currentState) return;
     if (!STATIONS[state] && !STATION_CONFIG[state]) return;
@@ -256,6 +347,9 @@ class SceneEngine {
     this.currentState = state;
     this.animFrame = 0;
     this.animAccum = 0;
+
+    // Show thought bubble for the new state
+    this._showThoughtBubble(state);
 
     // Set tween target from furniture position, clamped to diamond
     const station = this._getStationPos(state);
@@ -329,6 +423,7 @@ class SceneEngine {
 
     this._updateTween();
     this._updateAnimation(dt);
+    this._updateThoughtBubble();
     this._render();
 
     this.rafId = requestAnimationFrame((ts) => this._loop(ts));
@@ -359,12 +454,36 @@ class SceneEngine {
     const dy = this.targetY - this.charY;
     const dist = Math.sqrt(dx * dx + dy * dy);
 
+    const wasMoving = this.isMoving;
+
     if (dist < this.tweenSpeed) {
       this.charX = this.targetX;
       this.charY = this.targetY;
+      this.isMoving = false;
     } else {
       this.charX += (dx / dist) * this.tweenSpeed;
       this.charY += (dy / dist) * this.tweenSpeed;
+      this.isMoving = true;
+
+      // Pick walk direction from movement angle (4-way: n, s, se, sw)
+      const angle = Math.atan2(dy, dx); // -PI to PI
+      if (angle < -Math.PI * 0.6) {
+        this.charDirection = 'sw';       // upper-left
+      } else if (angle < -Math.PI * 0.1) {
+        this.charDirection = 'n';        // upward
+      } else if (angle < Math.PI * 0.4) {
+        this.charDirection = 'se';       // right / down-right
+      } else if (angle < Math.PI * 0.85) {
+        this.charDirection = 's';        // downward
+      } else {
+        this.charDirection = 'sw';       // left
+      }
+    }
+
+    // Reset animation frame when movement state changes
+    if (wasMoving && !this.isMoving) {
+      this.animFrame = 0;
+      this.animAccum = 0;
     }
 
     // Keep character inside the diamond
@@ -442,6 +561,7 @@ class SceneEngine {
         this._drawFurniture(d.f);
       } else {
         this._drawCharacter();
+        this._drawThoughtBubble();
       }
     }
 
@@ -659,7 +779,9 @@ class SceneEngine {
     }
 
     if (!img) {
-      img = this.images.get(`clawd-${this.charDirection}`);
+      // Fallback static sprites: map n/s to sw/se
+      const staticDir = (this.charDirection === 'n' || this.charDirection === 'sw') ? 'sw' : 'se';
+      img = this.images.get(`clawd-${staticDir}`);
     }
 
     if (img) {

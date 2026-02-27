@@ -54,58 +54,62 @@ async function init() {
     }
   }
 
+  // Load all 4 directions for both animations
   const [
-    pushingEastFrames,
-    pushingWestFrames,
-    pickingUpWestFrames,
-    pickingUpEastFrames,
+    breathingIdleNorthFrames,
+    breathingIdleSouthFrames,
     breathingIdleWestFrames,
     breathingIdleEastFrames,
+    walkingNorthFrames,
+    walkingSouthFrames,
     walkingWestFrames,
     walkingEastFrames,
-    drinkingEastFrames,
-    drinkingWestFrames,
   ] = await Promise.all([
-    tryLoadAnimFrames(engine, 'pushing', 'east', 6),
-    tryLoadAnimFrames(engine, 'pushing', 'west', 6),
-    tryLoadAnimFrames(engine, 'picking-up', 'west', 5),
-    tryLoadAnimFrames(engine, 'picking-up', 'east', 5),
+    tryLoadAnimFrames(engine, 'breathing-idle', 'north', 4),
+    tryLoadAnimFrames(engine, 'breathing-idle', 'south', 4),
     tryLoadAnimFrames(engine, 'breathing-idle', 'west', 4),
     tryLoadAnimFrames(engine, 'breathing-idle', 'east', 4),
+    tryLoadAnimFrames(engine, 'walking', 'north', 6),
+    tryLoadAnimFrames(engine, 'walking', 'south', 6),
     tryLoadAnimFrames(engine, 'walking', 'west', 6),
     tryLoadAnimFrames(engine, 'walking', 'east', 6),
-    tryLoadAnimFrames(engine, 'drinking', 'east', 6),
-    tryLoadAnimFrames(engine, 'drinking', 'west', 6),
   ]);
 
   // Helper to filter null entries
   const validVariants = (arr) => arr.filter(v => v.frames != null);
 
-  // Register animation variants per state (multiple variants = random variety)
+  // Register walking animations for all 4 directions (used automatically during movement)
+  engine.registerAnimations('walking-n', validVariants([
+    { frames: walkingNorthFrames, fps: 8 },
+  ]));
+  engine.registerAnimations('walking-s', validVariants([
+    { frames: walkingSouthFrames, fps: 8 },
+  ]));
+  engine.registerAnimations('walking-se', validVariants([
+    { frames: walkingEastFrames, fps: 8 },
+  ]));
+  engine.registerAnimations('walking-sw', validVariants([
+    { frames: walkingWestFrames, fps: 8 },
+  ]));
+
+  // Each state faces a different direction for variety
   engine.registerAnimations('coding', validVariants([
-    { frames: pushingEastFrames, fps: 6 },
-    { frames: drinkingEastFrames, fps: 5 },
+    { frames: breathingIdleEastFrames, fps: 4 },
   ]));
   engine.registerAnimations('researching', validVariants([
-    { frames: pickingUpWestFrames, fps: 5 },
-    { frames: breathingIdleWestFrames, fps: 4 },
+    { frames: breathingIdleNorthFrames, fps: 4 },
   ]));
   engine.registerAnimations('bash', validVariants([
-    { frames: pushingEastFrames, fps: 6 },
-    { frames: drinkingEastFrames, fps: 5 },
+    { frames: breathingIdleSouthFrames, fps: 4 },
   ]));
   engine.registerAnimations('thinking', validVariants([
     { frames: breathingIdleWestFrames, fps: 4 },
-    { frames: drinkingWestFrames, fps: 5 },
   ]));
   engine.registerAnimations('listening', validVariants([
-    { frames: breathingIdleWestFrames, fps: 4 },
-    { frames: pickingUpWestFrames, fps: 5 },
+    { frames: breathingIdleSouthFrames, fps: 4 },
   ]));
   engine.registerAnimations('idle', validVariants([
     { frames: breathingIdleEastFrames, fps: 4 },
-    { frames: drinkingEastFrames, fps: 5 },
-    { frames: pickingUpEastFrames, fps: 5 },
   ]));
 
   // Register furniture — default positions inside the diamond
