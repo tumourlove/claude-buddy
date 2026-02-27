@@ -1,0 +1,26 @@
+appId: com.claude-buddy.app
+productName: Claude Buddy
+directories:
+  output: dist
+files:
+  - main.js
+  - preload.js
+  - src/**/*
+  - assets/**/*
+extraMetadata:
+  main: main.js
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+  icon: assets/icon.png
+  signAndEditExecutable: false
+nsis:
+  oneClick: true
+  allowToChangeInstallationDirectory: false
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+portable:
+  artifactName: "${productName}-portable.${ext}"

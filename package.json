@@ -1,13 +1,12 @@
 {
   "name": "claude-buddy",
   "version": "1.0.0",
-  "description": "",
+  "description": "Desktop companion that reacts to Claude Code activity",
   "main": "main.js",
-  "directories": {
-    "doc": "docs"
-  },
   "scripts": {
     "start": "electron .",
+    "build": "electron-builder --dir",
+    "dist": "electron-builder",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -15,7 +14,8 @@
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
-    "electron": "^40.6.1"
+    "electron": "^40.6.1",
+    "electron-builder": "^26.8.1"
   },
   "dependencies": {
     "chokidar": "^5.0.0"
