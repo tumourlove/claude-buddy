@@ -1,5 +1,5 @@
 /**
- * SceneEngine — Isometric diamond-room renderer for cyberpunk goblin office.
+ * SceneEngine — Isometric diamond-room renderer for game dev office.
  *
  * The room is a diamond-shaped isometric space:
  *   - Diamond floor centered in canvas
@@ -257,10 +257,11 @@ class SceneEngine {
     this.animFrame = 0;
     this.animAccum = 0;
 
-    // Set tween target from furniture position
+    // Set tween target from furniture position, clamped to diamond
     const station = this._getStationPos(state);
-    this.targetX = station.x;
-    this.targetY = station.y;
+    const clamped = this._clampToDiamond(station.x, station.y);
+    this.targetX = clamped.x;
+    this.targetY = clamped.y;
     this.charDirection = station.direction;
 
     // Pick a new animation variant
@@ -333,6 +334,24 @@ class SceneEngine {
     this.rafId = requestAnimationFrame((ts) => this._loop(ts));
   }
 
+  // ── Diamond bounds ─────────────────────────────────────────────────
+
+  /**
+   * Clamp a point to stay inside the room diamond.
+   * Diamond test: |x - cx| / halfW + |y - cy| / halfH <= 1
+   * If outside, project back onto the nearest diamond edge.
+   */
+  _clampToDiamond(x, y) {
+    const { cx, cy, halfW, halfH } = ROOM;
+    const margin = 10; // keep character a few px inside the edge
+    const hw = halfW - margin;
+    const hh = halfH - margin;
+    const d = Math.abs(x - cx) / hw + Math.abs(y - cy) / hh;
+    if (d <= 1) return { x, y };
+    // Scale the offset toward center so it lands on the edge
+    return { x: cx + (x - cx) / d, y: cy + (y - cy) / d };
+  }
+
   // ── Tweening ───────────────────────────────────────────────────────
 
   _updateTween() {
@@ -347,6 +366,11 @@ class SceneEngine {
       this.charX += (dx / dist) * this.tweenSpeed;
       this.charY += (dy / dist) * this.tweenSpeed;
     }
+
+    // Keep character inside the diamond
+    const clamped = this._clampToDiamond(this.charX, this.charY);
+    this.charX = clamped.x;
+    this.charY = clamped.y;
   }
 
   // ── Animation frame advancement ────────────────────────────────────
@@ -461,14 +485,14 @@ class SceneEngine {
     ctx.lineTo(left.x, left.y - wallH);
     ctx.lineTo(top.x, top.y - wallH);
     ctx.closePath();
-    ctx.fillStyle = '#1a1a2e';
+    ctx.fillStyle = '#d4c4a8';
     ctx.fill();
-    ctx.strokeStyle = '#0ff';
+    ctx.strokeStyle = '#8b7355';
     ctx.lineWidth = 1;
     ctx.stroke();
 
     // Wall detail lines (left wall)
-    ctx.strokeStyle = 'rgba(0, 255, 255, 0.15)';
+    ctx.strokeStyle = 'rgba(139, 115, 85, 0.2)';
     for (let i = 1; i < 6; i++) {
       const t = i / 6;
       const y1 = top.y - wallH + t * wallH;
@@ -486,14 +510,14 @@ class SceneEngine {
     ctx.lineTo(right.x, right.y - wallH);
     ctx.lineTo(top.x, top.y - wallH);
     ctx.closePath();
-    ctx.fillStyle = '#16213e';
+    ctx.fillStyle = '#c4b494';
     ctx.fill();
-    ctx.strokeStyle = '#0ff';
+    ctx.strokeStyle = '#8b7355';
     ctx.lineWidth = 1;
     ctx.stroke();
 
     // Wall detail lines (right wall)
-    ctx.strokeStyle = 'rgba(0, 255, 255, 0.15)';
+    ctx.strokeStyle = 'rgba(139, 115, 85, 0.2)';
     for (let i = 1; i < 6; i++) {
       const t = i / 6;
       const y1 = top.y - wallH + t * wallH;
@@ -504,8 +528,8 @@ class SceneEngine {
       ctx.stroke();
     }
 
-    // Neon strip along wall top edges
-    ctx.strokeStyle = '#ff00ff';
+    // Trim along wall top edges
+    ctx.strokeStyle = '#6b5b3e';
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(left.x, left.y - wallH);
@@ -521,8 +545,8 @@ class SceneEngine {
     ctx.lineTo(left.x, left.y);
     ctx.closePath();
 
-    // Fill floor with dark base first
-    ctx.fillStyle = '#0a0a1a';
+    // Fill floor with warm base first
+    ctx.fillStyle = '#5a4a3a';
     ctx.fill();
 
     // Tile the floor aligned to isometric diamond axes.
@@ -585,12 +609,12 @@ class SceneEngine {
     ctx.lineTo(bottom.x, bottom.y);
     ctx.lineTo(left.x, left.y);
     ctx.closePath();
-    ctx.strokeStyle = '#0ff';
+    ctx.strokeStyle = '#8b7355';
     ctx.lineWidth = 2;
     ctx.stroke();
 
     // Grid lines on floor for isometric feel
-    ctx.strokeStyle = 'rgba(0, 255, 255, 0.08)';
+    ctx.strokeStyle = 'rgba(139, 115, 85, 0.12)';
     ctx.lineWidth = 1;
     const gridLines = 8;
     for (let i = 1; i < gridLines; i++) {
