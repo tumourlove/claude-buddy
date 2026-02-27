@@ -97,6 +97,10 @@ function createWindow() {
   });
 }
 
+// Suppress EPIPE errors from console.log when parent process stdout is closed
+process.stdout?.on('error', () => {});
+process.stderr?.on('error', () => {});
+
 app.whenReady().then(createWindow);
 app.on('window-all-closed', (e) => {
   // Don't quit when window is hidden — tray keeps app alive

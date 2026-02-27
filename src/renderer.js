@@ -1,11 +1,11 @@
 import { SceneEngine, STATIONS, SCENE_SIZE } from './scene-engine.js';
-import { SmokeEffect } from './smoke-effect.js';
+// SmokeEffect removed — goblin has no chimney
 import { MoodEffects } from './mood-effects.js';
 import { SoundSystem } from './sounds.js';
 
 const buddyEl = document.getElementById('buddy');
 const engine = new SceneEngine(buddyEl);
-const smoke = new SmokeEffect();
+// No smoke effect for cyberpunk goblin
 const moodFx = new MoodEffects();
 const sounds = new SoundSystem();
 
@@ -36,7 +36,6 @@ async function init() {
     engine.loadImage('clawd-sw', '../assets/sprites/clawd-sw.png'),
     engine.loadImage('clawd-se', '../assets/sprites/clawd-se.png'),
     engine.loadImage('floor', '../assets/scene/floor-tile.png'),
-    engine.loadImage('wall', '../assets/scene/wall-background.png'),
     engine.loadImage('workbench', '../assets/scene/workbench.png'),
     engine.loadImage('bookshelf', '../assets/scene/bookshelf.png'),
     engine.loadImage('terminal', '../assets/scene/terminal.png'),
@@ -45,58 +44,90 @@ async function init() {
     engine.loadImage('hammock', '../assets/scene/hammock.png'),
   ]);
 
-  // Load animation frames
+  // Load animation frames — try each set, skip if not found yet
+  async function tryLoadAnimFrames(engine, anim, direction, frameCount) {
+    try {
+      return await loadAnimFrames(engine, anim, direction, frameCount);
+    } catch {
+      console.warn(`Animation not ready: ${anim}/${direction}`);
+      return null;
+    }
+  }
+
   const [
     pushingEastFrames,
+    pushingWestFrames,
     pickingUpWestFrames,
+    pickingUpEastFrames,
     breathingIdleWestFrames,
     breathingIdleEastFrames,
     walkingWestFrames,
     walkingEastFrames,
+    drinkingEastFrames,
+    drinkingWestFrames,
   ] = await Promise.all([
-    loadAnimFrames(engine, 'pushing', 'east', 6),
-    loadAnimFrames(engine, 'picking-up', 'west', 5),
-    loadAnimFrames(engine, 'breathing-idle', 'west', 4),
-    loadAnimFrames(engine, 'breathing-idle', 'east', 4),
-    loadAnimFrames(engine, 'walking', 'west', 6),
-    loadAnimFrames(engine, 'walking', 'east', 6),
+    tryLoadAnimFrames(engine, 'pushing', 'east', 6),
+    tryLoadAnimFrames(engine, 'pushing', 'west', 6),
+    tryLoadAnimFrames(engine, 'picking-up', 'west', 5),
+    tryLoadAnimFrames(engine, 'picking-up', 'east', 5),
+    tryLoadAnimFrames(engine, 'breathing-idle', 'west', 4),
+    tryLoadAnimFrames(engine, 'breathing-idle', 'east', 4),
+    tryLoadAnimFrames(engine, 'walking', 'west', 6),
+    tryLoadAnimFrames(engine, 'walking', 'east', 6),
+    tryLoadAnimFrames(engine, 'drinking', 'east', 6),
+    tryLoadAnimFrames(engine, 'drinking', 'west', 6),
   ]);
 
-  // Register animation variants per state
-  engine.registerAnimations('coding', [
+  // Helper to filter null entries
+  const validVariants = (arr) => arr.filter(v => v.frames != null);
+
+  // Register animation variants per state (multiple variants = random variety)
+  engine.registerAnimations('coding', validVariants([
     { frames: pushingEastFrames, fps: 6 },
-  ]);
-  engine.registerAnimations('researching', [
+    { frames: drinkingEastFrames, fps: 5 },
+  ]));
+  engine.registerAnimations('researching', validVariants([
     { frames: pickingUpWestFrames, fps: 5 },
-  ]);
-  engine.registerAnimations('bash', [
+    { frames: breathingIdleWestFrames, fps: 4 },
+  ]));
+  engine.registerAnimations('bash', validVariants([
     { frames: pushingEastFrames, fps: 6 },
-  ]);
-  engine.registerAnimations('thinking', [
+    { frames: drinkingEastFrames, fps: 5 },
+  ]));
+  engine.registerAnimations('thinking', validVariants([
     { frames: breathingIdleWestFrames, fps: 4 },
-  ]);
-  engine.registerAnimations('listening', [
+    { frames: drinkingWestFrames, fps: 5 },
+  ]));
+  engine.registerAnimations('listening', validVariants([
     { frames: breathingIdleWestFrames, fps: 4 },
-  ]);
-  engine.registerAnimations('idle', [
+    { frames: pickingUpWestFrames, fps: 5 },
+  ]));
+  engine.registerAnimations('idle', validVariants([
     { frames: breathingIdleEastFrames, fps: 4 },
-  ]);
+    { frames: drinkingEastFrames, fps: 5 },
+    { frames: pickingUpEastFrames, fps: 5 },
+  ]));
 
-  // Register furniture positions (name, x, y, zIndex)
-  engine.addFurniture('bookshelf', 30, 40, 40);
-  engine.addFurniture('terminal', 310, 30, 30);
-  engine.addFurniture('armchair', 30, 180, 180);
-  engine.addFurniture('workbench', 260, 160, 160);
-  engine.addFurniture('stool', 80, 300, 300);
-  engine.addFurniture('hammock', 280, 310, 310);
+  // Register furniture — default positions inside the diamond
+  // Diamond center=(240,260), the floor area is roughly x:80-400, y:170-350
+  // Shift+click to drag and rearrange! Positions auto-save.
+  engine.addFurniture('bookshelf', 140, 170);   // back-left
+  engine.addFurniture('terminal', 270, 165);    // back-right
+  engine.addFurniture('workbench', 260, 220);   // mid-right (coding)
+  engine.addFurniture('armchair', 140, 230);    // mid-left (thinking)
+  engine.addFurniture('stool', 175, 280);       // front-left (listening)
+  engine.addFurniture('hammock', 250, 275);     // front-right (idle)
+
+  // Load saved furniture positions (overrides defaults)
+  if (prefs.furniturePositions) {
+    engine.loadFurniturePositions(prefs.furniturePositions);
+  }
 
   // Set showRoom from preferences
   engine.setShowRoom(prefs.showRoom !== false);
 
-  // Wire effects callback
+  // Wire effects callback (mood particles only, no smoke)
   engine.onRenderEffects = (ctx, charPos, scale) => {
-    smoke.update(charPos.x, charPos.y);
-    smoke.render(ctx, scale);
     moodFx.update(charPos.x, charPos.y);
     moodFx.render(ctx, scale);
   };
@@ -127,16 +158,6 @@ window.claude.onMoodChange((mood) => {
   moodFx.setMood(mood);
   sounds.playForMood(mood);
 
-  // Adjust smoke intensity based on mood
-  if (mood === 'frustrated') {
-    smoke.setIntensity(2.0);
-  } else if (mood === 'excited') {
-    smoke.setIntensity(1.5);
-  } else if (mood === 'sleepy') {
-    smoke.setIntensity(0.3);
-  } else {
-    smoke.setIntensity(1.0);
-  }
 });
 
 window.claude.onScaleChanged((scale) => {
@@ -148,33 +169,84 @@ window.claude.onShowRoomChanged((show) => {
 });
 
 // ── Dragging support ──────────────────────────────────────────────────
-// Uses IPC to move window via main process so it works across monitor boundaries
+// Left-click: drag window. Shift+left-click: drag furniture props.
 
 let isDragging = false;
 let dragOffsetX, dragOffsetY;
+let draggingFurniture = null;
+let furnitureDragOffsetX = 0;
+let furnitureDragOffsetY = 0;
+
+function canvasToScene(clientX, clientY) {
+  const rect = buddyEl.getBoundingClientRect();
+  const scale = engine.scale;
+  return {
+    x: (clientX - rect.left) / scale,
+    y: (clientY - rect.top) / scale,
+  };
+}
 
 document.addEventListener('mousedown', (e) => {
-  if (e.button === 0) {
-    isDragging = true;
-    dragOffsetX = e.clientX;
-    dragOffsetY = e.clientY;
+  if (e.button !== 0) return;
+
+  if (e.shiftKey) {
+    // Shift+click: try to grab a furniture piece
+    const scene = canvasToScene(e.clientX, e.clientY);
+    const hit = engine.furnitureAt(scene.x, scene.y);
+    if (hit) {
+      draggingFurniture = hit;
+      furnitureDragOffsetX = scene.x - hit.x;
+      furnitureDragOffsetY = scene.y - hit.y;
+      e.preventDefault();
+      return;
+    }
   }
+
+  // Normal click: drag window
+  isDragging = true;
+  dragOffsetX = e.clientX;
+  dragOffsetY = e.clientY;
 });
 
 document.addEventListener('mousemove', (e) => {
+  if (draggingFurniture) {
+    const scene = canvasToScene(e.clientX, e.clientY);
+    engine.moveFurniture(
+      draggingFurniture,
+      scene.x - furnitureDragOffsetX,
+      scene.y - furnitureDragOffsetY,
+    );
+    return;
+  }
   if (isDragging) {
     const newX = e.screenX - dragOffsetX;
     const newY = e.screenY - dragOffsetY;
     window.claude.moveWindow(newX, newY);
   }
+  // Show grab cursor when hovering over furniture with shift held
+  if (e.shiftKey) {
+    const scene = canvasToScene(e.clientX, e.clientY);
+    const hit = engine.furnitureAt(scene.x, scene.y);
+    document.body.style.cursor = hit ? 'grab' : 'default';
+  } else {
+    document.body.style.cursor = 'default';
+  }
 });
 
 document.addEventListener('mouseup', () => {
+  if (draggingFurniture) {
+    // Save furniture positions to prefs
+    const positions = engine.getFurniturePositions();
+    window.claude.savePrefs({ furniturePositions: positions });
+    draggingFurniture = null;
+    return;
+  }
   isDragging = false;
 });
 
 window.addEventListener('blur', () => {
   isDragging = false;
+  draggingFurniture = null;
 });
 
 // ── Right-click context menu ──────────────────────────────────────────

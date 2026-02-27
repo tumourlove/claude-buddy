@@ -1,24 +1,51 @@
 /**
- * SceneEngine — Layered isometric scene renderer for CLAWD's steampunk workshop.
+ * SceneEngine — Isometric diamond-room renderer for cyberpunk goblin office.
+ *
+ * The room is a diamond-shaped isometric space:
+ *   - Diamond floor centered in canvas
+ *   - Two walls meeting at the back (top) corner
+ *   - Furniture placed in isometric positions
+ *   - Character walks between stations
  *
  * Rendering layers (bottom → top):
- *   0  floor tiles
- *   1  wall background
- *   2  furniture behind character (zIndex < charY)
- *   3  character (96×96 sprite)
- *   4  furniture in front of character (zIndex >= charY)
- *   5  effects (via onRenderEffects callback)
+ *   0  room background (floor + walls as single image or procedural)
+ *   1  furniture behind character (zIndex < charY)
+ *   2  character (96×96 sprite)
+ *   3  furniture in front of character (zIndex >= charY)
+ *   4  effects (via onRenderEffects callback)
  */
 
 const SCENE_SIZE = 480;
 
+// Room diamond geometry — the floor diamond vertices
+// Standard isometric ratio is 2:1 (halfW = 2 * halfH)
+const ROOM = {
+  cx: 240,        // center x
+  cy: 270,        // center y (shifted down to leave wall space)
+  halfW: 200,     // half-width of diamond
+  halfH: 100,     // half-height of diamond (halfW/2 for true 2:1 isometric)
+  wallH: 130,     // wall height in pixels
+};
+
+// Station-to-furniture mapping and default direction
+// The character will stand next to the linked furniture piece.
+const STATION_CONFIG = {
+  coding:      { furniture: 'workbench',  direction: 'se', offsetX: -30, offsetY: 40 },
+  researching: { furniture: 'bookshelf',  direction: 'sw', offsetX: 30,  offsetY: 40 },
+  bash:        { furniture: 'terminal',   direction: 'se', offsetX: -30, offsetY: 40 },
+  thinking:    { furniture: 'armchair',   direction: 'sw', offsetX: 30,  offsetY: 40 },
+  listening:   { furniture: 'stool',      direction: 'sw', offsetX: 30,  offsetY: 30 },
+  idle:        { furniture: 'hammock',    direction: 'se', offsetX: -20, offsetY: 40 },
+};
+
+// Fallback static positions (used before furniture is registered)
 const STATIONS = {
-  coding:      { x: 300, y: 200, direction: 'se' },
-  researching: { x: 80,  y: 100, direction: 'sw' },
-  bash:        { x: 340, y: 100, direction: 'se' },
-  thinking:    { x: 80,  y: 220, direction: 'sw' },
-  listening:   { x: 120, y: 340, direction: 'sw' },
-  idle:        { x: 340, y: 340, direction: 'se' },
+  coding:      { x: 280, y: 270, direction: 'se' },
+  researching: { x: 170, y: 210, direction: 'sw' },
+  bash:        { x: 310, y: 205, direction: 'se' },
+  thinking:    { x: 180, y: 270, direction: 'sw' },
+  listening:   { x: 210, y: 310, direction: 'sw' },
+  idle:        { x: 240, y: 310, direction: 'se' },
 };
 
 class SceneEngine {
@@ -59,7 +86,7 @@ class SceneEngine {
     this.charDirection = STATIONS.idle.direction;
     this.targetX = this.charX;
     this.targetY = this.charY;
-    this.tweenSpeed = 3; // pixels per frame (~180px/sec at 60fps)
+    this.tweenSpeed = 1.5; // pixels per frame (~90px/sec at 60fps)
 
     // Callbacks
     this.onRenderEffects = null;
@@ -91,11 +118,37 @@ class SceneEngine {
 
   /**
    * Register a furniture piece by name at scene coordinates (x, y).
-   * zIndex controls draw order relative to the character.
+   * zIndex is auto-calculated from y + image height for depth sorting.
    */
-  addFurniture(name, x, y, zIndex) {
-    this.furniture.push({ name, x, y, zIndex });
+  addFurniture(name, x, y) {
+    this.furniture.push({ name, x, y, zIndex: y + 64 });
     this.furnitureSorted = false;
+  }
+
+  /**
+   * Load saved furniture positions from a map of { name: {x, y} }.
+   */
+  loadFurniturePositions(positions) {
+    if (!positions) return;
+    for (const f of this.furniture) {
+      if (positions[f.name]) {
+        f.x = positions[f.name].x;
+        f.y = positions[f.name].y;
+        f.zIndex = f.y + 64;
+      }
+    }
+    this.furnitureSorted = false;
+  }
+
+  /**
+   * Get all furniture positions as { name: {x, y} }.
+   */
+  getFurniturePositions() {
+    const pos = {};
+    for (const f of this.furniture) {
+      pos[f.name] = { x: f.x, y: f.y };
+    }
+    return pos;
   }
 
   _ensureFurnitureSorted() {
@@ -103,6 +156,36 @@ class SceneEngine {
       this.furniture.sort((a, b) => a.zIndex - b.zIndex);
       this.furnitureSorted = true;
     }
+  }
+
+  // ── Furniture dragging ────────────────────────────────────────────
+
+  /**
+   * Hit-test furniture at scene coordinates (sx, sy).
+   * Returns the topmost (highest zIndex) furniture piece, or null.
+   */
+  furnitureAt(sx, sy) {
+    // Check in reverse zIndex order (front to back)
+    const sorted = [...this.furniture].sort((a, b) => b.zIndex - a.zIndex);
+    for (const f of sorted) {
+      const img = this.images.get(f.name);
+      const w = img ? img.naturalWidth : 64;
+      const h = img ? img.naturalHeight : 64;
+      if (sx >= f.x && sx <= f.x + w && sy >= f.y && sy <= f.y + h) {
+        return f;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Move a furniture piece to new scene coordinates.
+   */
+  moveFurniture(f, x, y) {
+    f.x = x;
+    f.y = y;
+    f.zIndex = y + 64;
+    this.furnitureSorted = false;
   }
 
   // ── Animation pool ─────────────────────────────────────────────────
@@ -148,16 +231,34 @@ class SceneEngine {
 
   // ── State / mood ───────────────────────────────────────────────────
 
+  /**
+   * Get the target position for a state, based on linked furniture position.
+   */
+  _getStationPos(state) {
+    const config = STATION_CONFIG[state];
+    if (config) {
+      const f = this.furniture.find(f => f.name === config.furniture);
+      if (f) {
+        return {
+          x: f.x + 32 + config.offsetX,  // 32 = half of 64px furniture
+          y: f.y + 32 + config.offsetY,
+          direction: config.direction,
+        };
+      }
+    }
+    return STATIONS[state] || { x: 240, y: 260, direction: 'se' };
+  }
+
   setState(state) {
     if (state === this.currentState) return;
-    if (!STATIONS[state]) return;
+    if (!STATIONS[state] && !STATION_CONFIG[state]) return;
 
     this.currentState = state;
     this.animFrame = 0;
     this.animAccum = 0;
 
-    // Set tween target
-    const station = STATIONS[state];
+    // Set tween target from furniture position
+    const station = this._getStationPos(state);
     this.targetX = station.x;
     this.targetY = station.y;
     this.charDirection = station.direction;
@@ -290,36 +391,34 @@ class SceneEngine {
     ctx.save();
     ctx.scale(s, s);
 
-    // Layer 0–1: floor and wall (skipped when showRoom is off)
+    // Layer 0: isometric room (floor diamond + walls)
     if (this.showRoom) {
-      this._drawLayer('floor');
-      this._drawLayer('wall');
+      this._drawRoom();
     }
 
-    // Prepare furniture split around character
-    this._ensureFurnitureSorted();
-    const charDrawY = this.charY;
-    const behind = [];
-    const inFront = [];
+    // Painter's algorithm: sort all drawable objects by their base Y
+    // Character base Y = charY (center of sprite, feet area)
+    // Furniture base Y = f.y + height (bottom edge of the prop)
+    const drawables = [];
+
     for (const f of this.furniture) {
-      if (f.zIndex < charDrawY) {
-        behind.push(f);
+      const img = this.images.get(f.name);
+      const h = img ? img.naturalHeight : 64;
+      drawables.push({ type: 'furniture', f, sortY: f.y + h });
+    }
+
+    // Character sort Y: use a point near the feet (charY is center, +20 toward feet)
+    drawables.push({ type: 'character', sortY: this.charY + 20 });
+
+    // Sort by sortY ascending — things higher on screen draw first (behind)
+    drawables.sort((a, b) => a.sortY - b.sortY);
+
+    for (const d of drawables) {
+      if (d.type === 'furniture') {
+        this._drawFurniture(d.f);
       } else {
-        inFront.push(f);
+        this._drawCharacter();
       }
-    }
-
-    // Layer 2: furniture behind character
-    for (const f of behind) {
-      this._drawFurniture(f);
-    }
-
-    // Layer 3: character
-    this._drawCharacter();
-
-    // Layer 4: furniture in front of character
-    for (const f of inFront) {
-      this._drawFurniture(f);
     }
 
     ctx.restore();
@@ -330,10 +429,191 @@ class SceneEngine {
     }
   }
 
-  _drawLayer(name) {
-    const img = this.images.get(name);
+  /**
+   * Draw the complete isometric room: diamond floor + two back walls.
+   * If a 'room' image is loaded, draw that; otherwise draw procedurally.
+   */
+  _drawRoom() {
+    const img = this.images.get('room');
     if (img) {
-      this.ctx.drawImage(img, 0, 0, SCENE_SIZE, SCENE_SIZE);
+      // Single pre-rendered room image
+      this.ctx.drawImage(img, 0, 0);
+      return;
+    }
+    // Procedural isometric room
+    this._drawProceduralRoom();
+  }
+
+  _drawProceduralRoom() {
+    const ctx = this.ctx;
+    const { cx, cy, halfW, halfH, wallH } = ROOM;
+
+    // Diamond floor vertices: top, right, bottom, left
+    const top    = { x: cx, y: cy - halfH };
+    const right  = { x: cx + halfW, y: cy };
+    const bottom = { x: cx, y: cy + halfH };
+    const left   = { x: cx - halfW, y: cy };
+
+    // ── Left wall (back-left edge going up) ──
+    ctx.beginPath();
+    ctx.moveTo(top.x, top.y);
+    ctx.lineTo(left.x, left.y);
+    ctx.lineTo(left.x, left.y - wallH);
+    ctx.lineTo(top.x, top.y - wallH);
+    ctx.closePath();
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fill();
+    ctx.strokeStyle = '#0ff';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Wall detail lines (left wall)
+    ctx.strokeStyle = 'rgba(0, 255, 255, 0.15)';
+    for (let i = 1; i < 6; i++) {
+      const t = i / 6;
+      const y1 = top.y - wallH + t * wallH;
+      const y2 = left.y - wallH + t * wallH;
+      ctx.beginPath();
+      ctx.moveTo(top.x, y1);
+      ctx.lineTo(left.x, y2);
+      ctx.stroke();
+    }
+
+    // ── Right wall (back-right edge going up) ──
+    ctx.beginPath();
+    ctx.moveTo(top.x, top.y);
+    ctx.lineTo(right.x, right.y);
+    ctx.lineTo(right.x, right.y - wallH);
+    ctx.lineTo(top.x, top.y - wallH);
+    ctx.closePath();
+    ctx.fillStyle = '#16213e';
+    ctx.fill();
+    ctx.strokeStyle = '#0ff';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Wall detail lines (right wall)
+    ctx.strokeStyle = 'rgba(0, 255, 255, 0.15)';
+    for (let i = 1; i < 6; i++) {
+      const t = i / 6;
+      const y1 = top.y - wallH + t * wallH;
+      const y2 = right.y - wallH + t * wallH;
+      ctx.beginPath();
+      ctx.moveTo(top.x, y1);
+      ctx.lineTo(right.x, y2);
+      ctx.stroke();
+    }
+
+    // Neon strip along wall top edges
+    ctx.strokeStyle = '#ff00ff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(left.x, left.y - wallH);
+    ctx.lineTo(top.x, top.y - wallH);
+    ctx.lineTo(right.x, right.y - wallH);
+    ctx.stroke();
+
+    // ── Diamond floor ──
+    ctx.beginPath();
+    ctx.moveTo(top.x, top.y);
+    ctx.lineTo(right.x, right.y);
+    ctx.lineTo(bottom.x, bottom.y);
+    ctx.lineTo(left.x, left.y);
+    ctx.closePath();
+
+    // Fill floor with dark base first
+    ctx.fillStyle = '#0a0a1a';
+    ctx.fill();
+
+    // Tile the floor aligned to isometric diamond axes.
+    // The floor tile is an isometric diamond (64x64 canvas, ~64 wide, ~32 tall diamond).
+    // Place tiles along the diamond's two axes so they seamlessly tile.
+    //
+    // Isometric tile spacing:
+    //   Along right-edge of diamond (top→right): each tile steps (+tileW/2, +tileH_diamond/2)
+    //   Along left-edge of diamond (top→left):   each tile steps (-tileW/2, +tileH_diamond/2)
+    // where tileH_diamond ≈ tileW/2 for standard 2:1 isometric.
+    const floorImg = this.images.get('floor');
+    if (floorImg) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(top.x, top.y);
+      ctx.lineTo(right.x, right.y);
+      ctx.lineTo(bottom.x, bottom.y);
+      ctx.lineTo(left.x, left.y);
+      ctx.closePath();
+      ctx.clip();
+
+      const tw = floorImg.naturalWidth;   // 64
+      // The diamond in the tile is tw wide and tw/2 tall (standard 2:1 iso)
+      const dw = tw;      // tile diamond width = 64
+      const dh = tw / 2;  // tile diamond height = 32
+
+      // Basis vectors for isometric grid placement:
+      // Move one tile to the "right" along the diamond's right-edge axis
+      const axX = dw / 2;    // +32
+      const axY = dh / 2;    // +16
+      // Move one tile "down" along the diamond's left-edge axis
+      const ayX = -dw / 2;   // -32
+      const ayY = dh / 2;    // +16
+
+      // We need enough tiles to cover the diamond. The diamond spans
+      // halfW along each axis, so we need ceil(halfW / (dw/2)) tiles per axis
+      const tilesPerAxis = Math.ceil(halfW / (dw / 2)) + 2;
+
+      // Origin: start from the top vertex of the room diamond
+      const originX = top.x;
+      const originY = top.y;
+
+      for (let row = -1; row < tilesPerAxis; row++) {
+        for (let col = -1; col < tilesPerAxis; col++) {
+          // Position of this tile's center in screen coords
+          const px = originX + col * axX + row * ayX;
+          const py = originY + col * axY + row * ayY;
+          // drawImage places at top-left, tile center is at (tw/2, dh/2) within the image
+          ctx.drawImage(floorImg, px - tw / 2, py - dh / 2);
+        }
+      }
+
+      ctx.restore();
+    }
+
+    // Floor outline
+    ctx.beginPath();
+    ctx.moveTo(top.x, top.y);
+    ctx.lineTo(right.x, right.y);
+    ctx.lineTo(bottom.x, bottom.y);
+    ctx.lineTo(left.x, left.y);
+    ctx.closePath();
+    ctx.strokeStyle = '#0ff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Grid lines on floor for isometric feel
+    ctx.strokeStyle = 'rgba(0, 255, 255, 0.08)';
+    ctx.lineWidth = 1;
+    const gridLines = 8;
+    for (let i = 1; i < gridLines; i++) {
+      const t = i / gridLines;
+      // Lines parallel to left edge (top→right lerped with left→bottom)
+      const x1 = top.x + (right.x - top.x) * t;
+      const y1 = top.y + (right.y - top.y) * t;
+      const x2 = left.x + (bottom.x - left.x) * t;
+      const y2 = left.y + (bottom.y - left.y) * t;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+
+      // Lines parallel to right edge (top→left lerped with right→bottom)
+      const x3 = top.x + (left.x - top.x) * t;
+      const y3 = top.y + (left.y - top.y) * t;
+      const x4 = right.x + (bottom.x - right.x) * t;
+      const y4 = right.y + (bottom.y - right.y) * t;
+      ctx.beginPath();
+      ctx.moveTo(x3, y3);
+      ctx.lineTo(x4, y4);
+      ctx.stroke();
     }
   }
 

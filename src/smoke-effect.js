@@ -1,9 +1,8 @@
 /**
- * SmokeEffect — Persistent chimney smoke particle system.
+ * SmokeEffect — Cyberpunk data-glitch particle system.
  *
- * Spawns wispy smoke particles from an offset above the character center
- * (the chimney pipe on CLAWD's back). Runs independently of character
- * animation state; intensity can be adjusted by mood.
+ * Spawns neon glow particles from above the character (like holographic
+ * data fragments rising from a cyberpunk device). Intensity adjusts with mood.
  */
 
 class SmokeEffect {
@@ -84,17 +83,17 @@ class SmokeEffect {
       ctx.save();
       ctx.globalAlpha = p.alpha;
 
-      // Outer circle
+      // Outer glow (cyan/magenta alternating)
       ctx.beginPath();
       ctx.arc(sx, sy, sSize, 0, Math.PI * 2);
-      ctx.fillStyle = '#c8c0b0';
+      ctx.fillStyle = p.hue;
       ctx.fill();
 
-      // Inner circle — 50% size, 50% alpha
-      ctx.globalAlpha = p.alpha * 0.5;
+      // Inner bright core
+      ctx.globalAlpha = p.alpha * 0.7;
       ctx.beginPath();
-      ctx.arc(sx, sy, sSize * 0.5, 0, Math.PI * 2);
-      ctx.fillStyle = '#e8e0d0';
+      ctx.arc(sx, sy, sSize * 0.4, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffffff';
       ctx.fill();
 
       ctx.restore();
@@ -104,16 +103,18 @@ class SmokeEffect {
   // ── Private ───────────────────────────────────────────────────────
 
   _spawn(charX, charY) {
+    const neonColors = ['#00ffff', '#ff00ff', '#00ff88', '#8800ff', '#00ccff'];
     this.particles.push({
-      x: charX + this.chimneyOffsetX + (Math.random() * 4 - 2),  // ±2px
+      x: charX + this.chimneyOffsetX + (Math.random() * 8 - 4),  // ±4px spread
       y: charY + this.chimneyOffsetY,
-      vx: (Math.random() - 0.5) * 0.3,
-      vy: -(0.8 + Math.random() * 0.4),    // -0.8 to -1.2
-      size: 3 + Math.random() * 4,          // 3–7px
-      alpha: 0.6 + Math.random() * 0.3,     // 0.6–0.9
+      vx: (Math.random() - 0.5) * 0.5,
+      vy: -(0.6 + Math.random() * 0.5),    // -0.6 to -1.1
+      size: 2 + Math.random() * 3,          // 2–5px (smaller, sharper)
+      alpha: 0.7 + Math.random() * 0.3,     // 0.7–1.0
       startAlpha: 0,                         // set below
       life: 0,
-      maxLife: 40 + Math.floor(Math.random() * 21),  // 40–60 frames
+      maxLife: 30 + Math.floor(Math.random() * 20),  // 30–50 frames
+      hue: neonColors[Math.floor(Math.random() * neonColors.length)],
     });
     // Cache the initial alpha for linear fade calculation
     const p = this.particles[this.particles.length - 1];
