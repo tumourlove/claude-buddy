@@ -20,4 +20,9 @@ contextBridge.exposeInMainWorld('claude', {
     ipcRenderer.removeAllListeners('claude-mood');
     ipcRenderer.on('claude-mood', (_, mood) => callback(mood));
   },
+  setShowRoom: (show) => ipcRenderer.invoke('set-show-room', show),
+  onShowRoomChanged: (callback) => {
+    ipcRenderer.removeAllListeners('show-room-changed');
+    ipcRenderer.on('show-room-changed', (_, show) => callback(show));
+  },
 });

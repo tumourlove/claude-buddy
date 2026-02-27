@@ -10,7 +10,7 @@ function loadPrefs() {
   try {
     return JSON.parse(fs.readFileSync(PREFS_PATH, 'utf8'));
   } catch {
-    return { x: undefined, y: undefined, scale: 1.0, volume: 0.2, muted: false, alwaysOnTop: true };
+    return { x: undefined, y: undefined, scale: 1.0, volume: 0.2, muted: false, alwaysOnTop: true, showRoom: true };
   }
 }
 
@@ -27,8 +27,8 @@ function createWindow() {
   prefs = loadPrefs();
 
   const { width: screenW, height: screenH } = screen.getPrimaryDisplay().workAreaSize;
-  const winW = Math.round(160 * prefs.scale);
-  const winH = Math.round(160 * prefs.scale);
+  const winW = Math.round(480 * prefs.scale);
+  const winH = Math.round(480 * prefs.scale);
 
   mainWindow = new BrowserWindow({
     width: winW,
@@ -118,12 +118,17 @@ ipcMain.handle('set-always-on-top', (_, value) => {
 });
 ipcMain.handle('set-scale', (_, scale) => {
   prefs.scale = scale;
-  const winW = Math.round(160 * scale);
-  const winH = Math.round(160 * scale);
+  const winW = Math.round(480 * scale);
+  const winH = Math.round(480 * scale);
   mainWindow.setResizable(true);
   mainWindow.setSize(winW, winH);
   mainWindow.webContents.send('scale-changed', scale);
   savePrefs(prefs);
+});
+ipcMain.handle('set-show-room', (_, show) => {
+  prefs.showRoom = show;
+  savePrefs(prefs);
+  mainWindow.webContents.send('show-room-changed', show);
 });
 ipcMain.handle('close-app', () => { app.quit(); });
 ipcMain.handle('move-window', (_, x, y) => {
