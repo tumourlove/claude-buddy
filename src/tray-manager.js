@@ -17,8 +17,19 @@ class TrayManager {
     this.tray = null;
 
     const assetsDir = path.join(__dirname, '..', 'assets', 'tray');
-    this.connectedIcon = nativeImage.createFromPath(path.join(assetsDir, 'connected.png'));
-    this.disconnectedIcon = nativeImage.createFromPath(path.join(assetsDir, 'disconnected.png'));
+    this.connectedIcon = nativeImage.createFromPath(path.join(assetsDir, 'clawd-face.png'));
+    // Create a dimmed version for disconnected state
+    const disconnectedImg = nativeImage.createFromPath(path.join(assetsDir, 'clawd-face.png'));
+    const size = disconnectedImg.getSize();
+    if (size.width > 0) {
+      const buf = disconnectedImg.toBitmap();
+      for (let i = 3; i < buf.length; i += 4) {
+        buf[i] = Math.floor(buf[i] * 0.4); // reduce alpha to 40%
+      }
+      this.disconnectedIcon = nativeImage.createFromBitmap(buf, size);
+    } else {
+      this.disconnectedIcon = disconnectedImg;
+    }
 
     this.connected = false;
     this._createTray();
