@@ -26,5 +26,6 @@ nsis:
   allowToChangeInstallationDirectory: false
   createDesktopShortcut: true
   createStartMenuShortcut: true
+  artifactName: "${name}-Setup-${version}.${ext}"
 portable:
-  artifactName: "${productName}-portable.${ext}"
+  artifactName: "${name}-portable.${ext}"

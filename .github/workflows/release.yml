@@ -26,7 +26,7 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/Claude.Buddy.Setup.*.exe
-            dist/Claude.Buddy-portable.exe
+            dist/claude-buddy-Setup-*.exe
+            dist/claude-buddy-portable.exe
             dist/latest.yml
           draft: true
