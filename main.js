@@ -103,11 +103,13 @@ function createWindow() {
     getPrefs: () => prefs,
     savePrefs: (p) => { Object.assign(prefs, p); savePrefs(prefs); },
     getStats: () => stats,
+    checkForUpdates: doUpdateCheck,
   });
 
   // Check for updates on startup
   updateChecker = new UpdateChecker(app.getVersion());
-  updateChecker.check().then((update) => {
+  const doUpdateCheck = () => updateChecker.check();
+  doUpdateCheck().then((update) => {
     if (update && trayManager) {
       trayManager.setUpdate(update);
     }

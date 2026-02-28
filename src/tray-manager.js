@@ -9,11 +9,12 @@ function formatDuration(ms) {
 }
 
 class TrayManager {
-  constructor(window, { getPrefs, savePrefs, getStats }) {
+  constructor(window, { getPrefs, savePrefs, getStats, checkForUpdates }) {
     this.window = window;
     this.getPrefs = getPrefs;
     this.savePrefs = savePrefs;
     this.getStats = getStats;
+    this.checkForUpdates = checkForUpdates;
     this.tray = null;
 
     const assetsDir = path.join(__dirname, '..', 'assets', 'tray');
@@ -77,14 +78,32 @@ class TrayManager {
     }
 
     const updateItems = this.update ? [
-      { label: `Update available: v${this.update.version}`, click: () => {
+      { label: `Download v${this.update.version}`, click: () => {
         shell.openExternal(this.update.url);
       }},
-      { type: 'separator' },
-    ] : [];
+    ] : [
+      { label: 'Check for Updates', click: () => {
+        if (this.checkForUpdates) {
+          this.checkForUpdates().then((update) => {
+            if (update) {
+              this.setUpdate(update);
+            } else {
+              this.updateLabel = 'Up to date!';
+              this._updateMenu();
+            }
+          });
+        }
+      }},
+    ];
+
+    if (this.updateLabel && !this.update) {
+      updateItems.length = 0;
+      updateItems.push({ label: this.updateLabel, enabled: false });
+    }
 
     const menu = Menu.buildFromTemplate([
       ...updateItems,
+      { type: 'separator' },
       { label: toggleLabel, click: () => {
         if (this.window.isVisible()) {
           this.window.hide();
