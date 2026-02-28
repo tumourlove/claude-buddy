@@ -40,7 +40,9 @@ Claude Code JSONL logs (~/.claude/projects/)
 | `src/mood-detector.js` | Keyword/pace analysis with exponential decay scoring; detects frustrated, celebrating, confused, excited, sleepy, determined, proud, curious moods |
 | `src/mood-effects.js` | Mood-reactive particle effects, flow state aura with speed lines, eureka burst, victory confetti |
 | `src/sounds.js` | SNES-style procedural audio via Web Audio API; state sounds, mood sounds, lo-fi coding music loop (Chrono Trigger style), FF victory fanfare |
-| `src/tray-manager.js` | System tray with green/red icons for connection status |
+| `src/tray-manager.js` | System tray with CLAWD face icon (dimmed when disconnected), settings, stats submenu, auto-update UI |
+| `src/stats-tracker.js` | Session stats: tool call counts, state durations, flow time tracking |
+| `src/update-checker.js` | Auto-updater via electron-updater; checks GitHub releases, downloads in background, restart-to-install |
 
 ### Scene System (Isometric Room)
 
@@ -57,10 +59,10 @@ The scene renders a diamond-shaped isometric room with:
 - Character sprites: 96×96 PNG files in `assets/sprites/`
 - Static rotations: `clawd-sw.png`, `clawd-se.png` (west/east facing)
 - Animations: `assets/sprites/animations/{name}/{direction}/frame_NNN.png`
-- Available animations: breathing-idle (4f), walking (6f), pushing (6f), picking-up (5f), fight-stance-idle-8-frames (8f), fireball (6f), falling-back-death (7f), front-flip (6f)
+- Available animations: breathing-idle (4f), walking (6f), fight-stance-idle-8-frames (8f), fireball (6f), falling-back-death (7f), front-flip (6f)
 - Walking animations play automatically when the character moves between stations
 - One-shot animation system: `playOneShot(animKey, { emoji, onComplete })` — temporarily plays a non-looping animation then reverts
-- Idle wandering: after 15s idle, CLAWD walks to random furniture, plays pushing/picking-up animations with curiosity emojis
+- Idle wandering: after 15s idle, CLAWD walks to random furniture, shows curiosity emojis
 - Thought bubbles persist for the duration of a state (💻 coding, 📖 researching, ⚡ bash, 💭 thinking, 👂 listening, 😴 idle, 🌐 browsing, 🏗️ building, 🫡 delegating)
 - Mood bubbles appear above thought bubbles (😤 frustrated, 🎉 celebrating, ❓ confused, 🔥 excited, 💤 sleepy, 💪 determined, 🌟 proud, 🔎 curious)
 - Special reactive animations: 💥 flinch on errors, 💡 eureka on research→edit, 🎉 victory flip on celebrating
@@ -145,7 +147,7 @@ The renderer expects these exact filenames:
 Pixel art generation API available via MCP. All creation tools are async — they return a job ID and take a few minutes to process. Use the corresponding `get_*` tool to poll for completion.
 
 - **Characters:** `create_character` → `get_character`. Supports humanoid/quadruped, 4/8 directions, proportion presets (chibi, cartoon, heroic, etc.). Max ~20 concurrent jobs.
-- **Animations:** `animate_character` with a `template_animation_id`. Each animation uses 4 job slots (one per direction). Good ones: breathing-idle, walking, pushing, picking-up, fight-stance-idle-8-frames, fireball, falling-back-death, front-flip. Avoid: crouching (looks weird).
+- **Animations:** `animate_character` with a `template_animation_id`. Each animation uses 4 job slots (one per direction). Good ones: breathing-idle, walking, fight-stance-idle-8-frames, fireball, falling-back-death, front-flip. Avoid: crouching, pushing, picking-up (look bad).
 - **Isometric tiles:** `create_isometric_tile` — thin (floors), thick (platforms), or block (furniture/cubes). Downloads work reliably. Use `detail: "highly detailed"` (not "high detail").
 - **Map objects:** `create_map_object` — transparent-background props. Higher quality but download endpoint returns 500 errors frequently.
 - **Top-down tilesets:** `create_topdown_tileset` — 16-tile Wang sets for terrain transitions
@@ -161,10 +163,18 @@ Docs: https://api.pixellab.ai/mcp/docs
 | **Error flinch** | `is_error` or error regex in tool_result | falling-back-death one-shot + 💥 | Detuned square blip + noise |
 | **Eureka moment** | 3+ research states → coding/bash | fireball one-shot + 💡 + gold sparkles | Ascending triangle arpeggio |
 | **Victory** | `celebrating` mood triggers | front-flip one-shot + confetti | FF victory fanfare |
-| **Idle wandering** | 15s of idle state | Walks to random furniture, pushes/picks-up | — |
+| **Idle wandering** | 15s of idle state | Walks to random furniture, shows emoji | — |
 | **Coding music** | 10s sustained coding state | — | Lo-fi 8-bar pentatonic loop (Chrono Trigger style) |
 
 **Demo mode**: Press `D` to cycle through all states and moods automatically (2.5s intervals).
+
+## Distribution
+
+- **Auto-update** via `electron-updater`: checks GitHub releases on startup, downloads in background, tray shows progress percentage, click to restart and install
+- **Release workflow**: `.github/workflows/release.yml` — push a version tag (`git tag v1.x.x && git push origin v1.x.x`) to trigger GitHub Actions build and draft release
+- **Artifact names**: `claude-buddy-Setup-x.x.x.exe` (installer) and `claude-buddy-portable.exe` (standalone) — hyphenated names required for auto-update `latest.yml` compatibility
+- **`latest.yml`** must be included in every release for electron-updater to detect new versions
+- Auto-update only works with the installer version, not portable
 
 ## Platform Notes
 

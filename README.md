@@ -16,14 +16,16 @@ Desktop companion that reacts to your Claude Code activity in real-time. A pixel
 - **Lo-fi coding music** — procedural Chrono Trigger-style 8-bar loop during sustained coding
 - **SNES-style sounds** — procedural audio via Web Audio API for every state and mood
 - **Session stats** — tracks tool calls, time per state, flow duration (accessible from system tray)
+- **Session stats** — tracks tool calls, time per state, flow duration (accessible from system tray)
 - **System tray** — connection status, auto-start with Windows, always-on-top toggle, room visibility
+- **Auto-update** — checks GitHub releases on startup, downloads in background, one-click restart to install
 
 ## Install
 
 Download the latest release from [Releases](https://github.com/tumourlove/claude-buddy/releases):
 
-- **Installer**: `Claude Buddy Setup x.x.x.exe` — installs to AppData with Start Menu shortcut
-- **Portable**: `Claude-Buddy-portable.exe` — single file, run anywhere
+- **Installer**: `claude-buddy-Setup-x.x.x.exe` — installs to AppData with Start Menu shortcut, supports auto-update
+- **Portable**: `claude-buddy-portable.exe` — single file, run anywhere (no auto-update)
 
 ## Build from Source
 
@@ -44,6 +46,7 @@ npm run dist       # package Windows installer + portable
 | Shift + drag | Rearrange furniture |
 | D key | Toggle demo mode (cycles all states/moods) |
 | Click tray icon | Show/hide window |
+| Tray → Check for Updates | Download and install latest version |
 
 ## How It Works
 
