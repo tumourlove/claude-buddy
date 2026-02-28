@@ -75,6 +75,40 @@ async function init() {
     tryLoadAnimFrames(engine, 'walking', 'east', 6),
   ]);
 
+  const [
+    flinchN, flinchS, flinchW, flinchE,
+    eurekaN, eurekaS, eurekaW, eurekaE,
+    flowN, flowS, flowW, flowE,
+    victoryN, victoryS, victoryW, victoryE,
+    pushingN, pushingS, pushingW, pushingE,
+    pickingUpN, pickingUpS, pickingUpW, pickingUpE,
+  ] = await Promise.all([
+    tryLoadAnimFrames(engine, 'falling-back-death', 'north', 7),
+    tryLoadAnimFrames(engine, 'falling-back-death', 'south', 7),
+    tryLoadAnimFrames(engine, 'falling-back-death', 'west', 7),
+    tryLoadAnimFrames(engine, 'falling-back-death', 'east', 7),
+    tryLoadAnimFrames(engine, 'fireball', 'north', 6),
+    tryLoadAnimFrames(engine, 'fireball', 'south', 6),
+    tryLoadAnimFrames(engine, 'fireball', 'west', 6),
+    tryLoadAnimFrames(engine, 'fireball', 'east', 6),
+    tryLoadAnimFrames(engine, 'fight-stance-idle-8-frames', 'north', 8),
+    tryLoadAnimFrames(engine, 'fight-stance-idle-8-frames', 'south', 8),
+    tryLoadAnimFrames(engine, 'fight-stance-idle-8-frames', 'west', 8),
+    tryLoadAnimFrames(engine, 'fight-stance-idle-8-frames', 'east', 8),
+    tryLoadAnimFrames(engine, 'front-flip', 'north', 6),
+    tryLoadAnimFrames(engine, 'front-flip', 'south', 6),
+    tryLoadAnimFrames(engine, 'front-flip', 'west', 6),
+    tryLoadAnimFrames(engine, 'front-flip', 'east', 6),
+    tryLoadAnimFrames(engine, 'pushing', 'north', 6),
+    tryLoadAnimFrames(engine, 'pushing', 'south', 6),
+    tryLoadAnimFrames(engine, 'pushing', 'west', 6),
+    tryLoadAnimFrames(engine, 'pushing', 'east', 6),
+    tryLoadAnimFrames(engine, 'picking-up', 'north', 5),
+    tryLoadAnimFrames(engine, 'picking-up', 'south', 5),
+    tryLoadAnimFrames(engine, 'picking-up', 'west', 5),
+    tryLoadAnimFrames(engine, 'picking-up', 'east', 5),
+  ]);
+
   // Helper to filter null entries
   const validVariants = (arr) => arr.filter(v => v.frames != null);
 
@@ -110,6 +144,35 @@ async function init() {
   ]));
   engine.registerAnimations('idle', validVariants([
     { frames: breathingIdleEastFrames, fps: 4 },
+  ]));
+
+  // Register directional one-shot animations
+  const dirs = ['north', 'south', 'west', 'east'];
+  const flinchFrames = [flinchN, flinchS, flinchW, flinchE];
+  const eurekaFrames = [eurekaN, eurekaS, eurekaW, eurekaE];
+  const flowFrames = [flowN, flowS, flowW, flowE];
+  const victoryFrames = [victoryN, victoryS, victoryW, victoryE];
+  const pushingFrames = [pushingN, pushingS, pushingW, pushingE];
+  const pickingUpFrames = [pickingUpN, pickingUpS, pickingUpW, pickingUpE];
+
+  dirs.forEach((dir, i) => {
+    if (flinchFrames[i]) engine.registerAnimations(`flinch-${dir}`, [{ frames: flinchFrames[i], fps: 10 }]);
+    if (eurekaFrames[i]) engine.registerAnimations(`eureka-${dir}`, [{ frames: eurekaFrames[i], fps: 10 }]);
+    if (flowFrames[i]) engine.registerAnimations(`flow-${dir}`, [{ frames: flowFrames[i], fps: 8 }]);
+    if (victoryFrames[i]) engine.registerAnimations(`victory-${dir}`, [{ frames: victoryFrames[i], fps: 10 }]);
+    if (pushingFrames[i]) engine.registerAnimations(`pushing-${dir}`, [{ frames: pushingFrames[i], fps: 6 }]);
+    if (pickingUpFrames[i]) engine.registerAnimations(`picking-up-${dir}`, [{ frames: pickingUpFrames[i], fps: 6 }]);
+  });
+
+  // Register new states (reuse breathing-idle directions)
+  engine.registerAnimations('browsing', validVariants([
+    { frames: breathingIdleSouthFrames, fps: 4 },
+  ]));
+  engine.registerAnimations('building', validVariants([
+    { frames: breathingIdleEastFrames, fps: 4 },
+  ]));
+  engine.registerAnimations('delegating', validVariants([
+    { frames: breathingIdleWestFrames, fps: 4 },
   ]));
 
   // Register furniture — default positions inside the diamond
@@ -155,6 +218,23 @@ engine.onStateChange = (state) => {
 
 window.claude.onStateChange((state) => {
   engine.setState(state);
+
+  // Start idle wandering after 15 seconds of idle
+  if (state === 'idle') {
+    if (!engine._wanderStartTimer) {
+      engine._wanderStartTimer = setTimeout(() => {
+        if (engine.currentState === 'idle') {
+          engine.startWandering();
+        }
+        engine._wanderStartTimer = null;
+      }, 15000);
+    }
+  } else {
+    if (engine._wanderStartTimer) {
+      clearTimeout(engine._wanderStartTimer);
+      engine._wanderStartTimer = null;
+    }
+  }
 });
 
 window.claude.onMoodChange((mood) => {
@@ -162,6 +242,14 @@ window.claude.onMoodChange((mood) => {
   moodFx.setMood(mood);
   sounds.playForMood(mood);
 
+  // Victory celebration animation on celebrating mood
+  if (mood === 'celebrating') {
+    const dir = engine.charDirection === 'n' ? 'north' :
+                engine.charDirection === 's' ? 'south' :
+                engine.charDirection === 'sw' ? 'west' : 'east';
+    engine.playOneShot(`victory-${dir}`, { emoji: '🎉' });
+    moodFx.triggerVictoryConfetti(engine.charX, engine.charY);
+  }
 });
 
 window.claude.onScaleChanged((scale) => {
@@ -170,6 +258,78 @@ window.claude.onScaleChanged((scale) => {
 
 window.claude.onShowRoomChanged((show) => {
   engine.setShowRoom(show);
+});
+
+// Flow state
+window.claude.onFlowChange((flowing) => {
+  engine.setFlow(flowing);
+  moodFx.setFlow(flowing);
+});
+
+// Flinch on error
+window.claude.onFlinch(() => {
+  const dir = engine.charDirection === 'n' ? 'north' :
+              engine.charDirection === 's' ? 'south' :
+              engine.charDirection === 'sw' ? 'west' : 'east';
+  engine.playOneShot(`flinch-${dir}`, { emoji: '💥' });
+  sounds.playFlinch();
+});
+
+// Eureka moment
+window.claude.onEureka(() => {
+  const dir = engine.charDirection === 'n' ? 'north' :
+              engine.charDirection === 's' ? 'south' :
+              engine.charDirection === 'sw' ? 'west' : 'east';
+  engine.playOneShot(`eureka-${dir}`, { emoji: '💡' });
+  sounds.playEureka();
+  moodFx.triggerEurekaBurst(engine.charX, engine.charY);
+});
+
+// ── Demo mode (press D to cycle states & moods) ─────────────────────
+
+let demoTimer = null;
+
+function runDemo() {
+  if (demoTimer) {
+    clearInterval(demoTimer);
+    demoTimer = null;
+    console.log('Demo stopped');
+    return;
+  }
+  console.log('Demo started — press D again to stop');
+
+  const states = ['coding', 'researching', 'bash', 'thinking', 'listening',
+                  'browsing', 'building', 'delegating', 'idle'];
+  const moods = [null, 'frustrated', 'celebrating', 'confused', 'excited',
+                 'sleepy', 'determined', 'proud', 'curious', null];
+  let si = 0;
+  let mi = 0;
+
+  const step = () => {
+    // Change state every tick
+    const state = states[si % states.length];
+    engine.setState(state);
+    sounds.playForState(state);
+    si++;
+
+    // Change mood every other tick
+    if (si % 2 === 0) {
+      const mood = moods[mi % moods.length];
+      engine.setMood(mood);
+      moodFx.setMood(mood);
+      if (mood) sounds.playForMood(mood);
+      mi++;
+    }
+  };
+
+  step(); // immediate first step
+  demoTimer = setInterval(step, 2500);
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'd' || e.key === 'D') {
+    runDemo();
+  }
 });
 
 // ── Dragging support ──────────────────────────────────────────────────

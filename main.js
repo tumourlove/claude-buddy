@@ -71,6 +71,21 @@ function createWindow() {
       mainWindow.webContents.send('claude-mood', mood);
     }
   };
+  detector.onFlow = (flowing) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('claude-flow', flowing);
+    }
+  };
+  detector.onFlinch = () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('claude-flinch');
+    }
+  };
+  detector.onEureka = () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('claude-eureka');
+    }
+  };
   detector.start();
 
   // Create system tray

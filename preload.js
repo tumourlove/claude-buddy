@@ -25,4 +25,16 @@ contextBridge.exposeInMainWorld('claude', {
     ipcRenderer.removeAllListeners('show-room-changed');
     ipcRenderer.on('show-room-changed', (_, show) => callback(show));
   },
+  onFlowChange: (callback) => {
+    ipcRenderer.removeAllListeners('claude-flow');
+    ipcRenderer.on('claude-flow', (_, flowing) => callback(flowing));
+  },
+  onFlinch: (callback) => {
+    ipcRenderer.removeAllListeners('claude-flinch');
+    ipcRenderer.on('claude-flinch', () => callback());
+  },
+  onEureka: (callback) => {
+    ipcRenderer.removeAllListeners('claude-eureka');
+    ipcRenderer.on('claude-eureka', () => callback());
+  },
 });

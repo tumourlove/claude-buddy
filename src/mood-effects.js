@@ -43,6 +43,27 @@ const MOOD_CONFIGS = {
     spawnRate: 20,
     maxParticles: 4,
   },
+  determined: {
+    color: '#ff6600',
+    secondary: '#ff8833',
+    symbol: 'burst',
+    spawnRate: 5,
+    maxParticles: 10,
+  },
+  proud: {
+    color: '#ffd700',
+    secondary: '#ffee88',
+    symbol: 'spark',
+    spawnRate: 8,
+    maxParticles: 8,
+  },
+  curious: {
+    color: '#66aaff',
+    secondary: '#88ccff',
+    symbol: 'question',
+    spawnRate: 12,
+    maxParticles: 4,
+  },
 };
 
 class MoodEffects {
@@ -51,6 +72,11 @@ class MoodEffects {
     this.mood = null;
     this.config = null;
     this.frameCounter = 0;
+    this.flowActive = false;
+    this.flowPhase = 0;
+    this.speedLines = [];
+    this.charX = 0;
+    this.charY = 0;
   }
 
   /**
@@ -68,11 +94,83 @@ class MoodEffects {
   }
 
   /**
+   * Toggle flow-state aura and speed lines around the character.
+   * @param {boolean} active
+   */
+  setFlow(active) {
+    this.flowActive = active;
+    if (active && this.speedLines.length === 0) {
+      for (let i = 0; i < 5; i++) {
+        this.speedLines.push({
+          angle: (i / 5) * Math.PI * 2,
+          length: 20 + Math.random() * 15,
+          speed: 0.02 + Math.random() * 0.01,
+        });
+      }
+    } else if (!active) {
+      this.speedLines = [];
+    }
+  }
+
+  /**
+   * Spawn a burst of golden sparks (eureka moment).
+   * @param {number} charX
+   * @param {number} charY
+   */
+  triggerEurekaBurst(charX, charY) {
+    for (let i = 0; i < 15; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 1 + Math.random() * 2;
+      this.particles.push({
+        x: charX + (Math.random() * 10 - 5),
+        y: charY - 20 + (Math.random() * 10 - 5),
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 1,
+        size: 2 + Math.random() * 3,
+        alpha: 1.0,
+        life: 0,
+        maxLife: 20 + Math.floor(Math.random() * 15),
+        symbol: 'spark',
+        color: Math.random() > 0.3 ? '#ffd700' : '#ffffff',
+      });
+    }
+  }
+
+  /**
+   * Launch a fountain of multi-colored confetti (victory/celebration).
+   * @param {number} charX
+   * @param {number} charY
+   */
+  triggerVictoryConfetti(charX, charY) {
+    for (let i = 0; i < 25; i++) {
+      const angle = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI;
+      const speed = 1.5 + Math.random() * 2.5;
+      const colors = ['#ffd700', '#ff8800', '#ff4444', '#44ff44', '#4488ff'];
+      this.particles.push({
+        x: charX + (Math.random() * 20 - 10),
+        y: charY - 10,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        size: 2 + Math.random() * 2,
+        alpha: 1.0,
+        life: 0,
+        maxLife: 50 + Math.floor(Math.random() * 30),
+        symbol: 'spark',
+        color: colors[Math.floor(Math.random() * colors.length)],
+        gravity: 0.05,
+      });
+    }
+  }
+
+  /**
    * Spawn new particles and advance existing ones.
    * @param {number} charX — character center X in scene coordinates
    * @param {number} charY — character center Y in scene coordinates
    */
   update(charX, charY) {
+    this.charX = charX;
+    this.charY = charY;
+
     if (!this.config) return;
 
     this.frameCounter++;
@@ -98,6 +196,10 @@ class MoodEffects {
         p.y += p.vy;
       }
 
+      if (p.gravity) {
+        p.vy += p.gravity;
+      }
+
       // Linear alpha fade
       p.alpha = 0.8 * (1 - p.life / p.maxLife);
 
@@ -114,6 +216,8 @@ class MoodEffects {
    * @param {number} scale — multiply positions and sizes by this factor
    */
   render(ctx, scale) {
+    this._renderFlow(ctx, scale);
+
     if (this.particles.length === 0) return;
 
     for (const p of this.particles) {
@@ -164,6 +268,43 @@ class MoodEffects {
   }
 
   // ── Private ───────────────────────────────────────────────────────
+
+  _renderFlow(ctx, scale) {
+    if (!this.flowActive) return;
+
+    this.flowPhase += 0.05;
+    const alpha = 0.1 + Math.sin(this.flowPhase) * 0.1;
+
+    const cx = this.charX * scale;
+    const cy = this.charY * scale;
+    const radius = 40 * scale;
+    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+    grad.addColorStop(0, `rgba(255, 200, 50, ${alpha})`);
+    grad.addColorStop(1, `rgba(255, 150, 0, 0)`);
+
+    ctx.save();
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = `rgba(255, 200, 50, ${alpha * 1.5})`;
+    ctx.lineWidth = 1.5 * scale;
+    for (const line of this.speedLines) {
+      line.angle += line.speed;
+      const innerR = 20 * scale;
+      const outerR = (20 + line.length) * scale;
+      const x1 = cx + Math.cos(line.angle) * innerR;
+      const y1 = cy + Math.sin(line.angle) * innerR;
+      const x2 = cx + Math.cos(line.angle) * outerR;
+      const y2 = cy + Math.sin(line.angle) * outerR;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
 
   _spawn(charX, charY) {
     const cfg = this.config;

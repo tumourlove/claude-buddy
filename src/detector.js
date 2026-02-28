@@ -8,13 +8,13 @@ const TOOL_MAP = {
   'Read': 'researching',
   'Grep': 'researching',
   'Glob': 'researching',
-  'WebFetch': 'researching',
-  'WebSearch': 'researching',
+  'WebFetch': 'browsing',
+  'WebSearch': 'browsing',
   'Edit': 'coding',
-  'Write': 'coding',
+  'Write': 'building',
   'NotebookEdit': 'coding',
   'Bash': 'bash',
-  'Task': 'thinking',
+  'Task': 'delegating',
   'AskUserQuestion': 'listening',
 };
 
@@ -30,6 +30,20 @@ class ClaudeDetector {
       if (this.onMood) this.onMood(mood);
     };
     this.lastActivity = 0;
+
+    // Flow state detection
+    this.toolTimestamps = [];
+    this.flowActive = false;
+    this.flowDecayTimer = null;
+    this.onFlow = null;
+
+    // Flinch detection
+    this.onFlinch = null;
+
+    // Eureka detection
+    this.stateHistory = [];
+    this.onEureka = null;
+
     this.idleTimeout = 10000; // 10s no activity = idle
     this.connectedTimeout = 30000; // 30s no activity = disconnected
     this.idleTimer = null;
@@ -118,6 +132,14 @@ class ClaudeDetector {
             return;
           }
         }
+        if (block.type === 'tool_result') {
+          const isError = block.is_error ||
+            (typeof block.content === 'string' &&
+              /Error|FAIL|error|exception|EPERM|ENOENT/i.test(block.content));
+          if (isError && this.onFlinch) {
+            this.onFlinch();
+          }
+        }
         if (block.type === 'text' && block.text) {
           this._emitState('thinking');
           return;
@@ -127,10 +149,42 @@ class ClaudeDetector {
   }
 
   _emitState(state) {
+    this._checkFlow();
     this.lastActivity = Date.now();
     this._resetIdleTimer();
     this._setConnected(true);
     if (this.onState) this.onState(state);
+
+    this.stateHistory.push(state);
+    if (this.stateHistory.length > 10) this.stateHistory.shift();
+
+    if ((state === 'coding' || state === 'building' || state === 'bash') &&
+        this.stateHistory.length >= 4) {
+      const prev = this.stateHistory.slice(-4, -1);
+      const allResearch = prev.every(s => s === 'researching' || s === 'browsing');
+      if (allResearch && this.onEureka) {
+        this.onEureka();
+      }
+    }
+  }
+
+  _checkFlow() {
+    const now = Date.now();
+    this.toolTimestamps.push(now);
+    this.toolTimestamps = this.toolTimestamps.filter(t => now - t < 15000);
+
+    if (this.toolTimestamps.length >= 5 && !this.flowActive) {
+      this.flowActive = true;
+      if (this.onFlow) this.onFlow(true);
+    }
+
+    if (this.flowDecayTimer) clearTimeout(this.flowDecayTimer);
+    this.flowDecayTimer = setTimeout(() => {
+      if (this.flowActive) {
+        this.flowActive = false;
+        if (this.onFlow) this.onFlow(false);
+      }
+    }, 10000);
   }
 
   _setConnected(connected) {
@@ -157,6 +211,7 @@ class ClaudeDetector {
     if (this.watcher) this.watcher.close();
     if (this.idleTimer) clearTimeout(this.idleTimer);
     if (this.connectedTimer) clearTimeout(this.connectedTimer);
+    if (this.flowDecayTimer) clearTimeout(this.flowDecayTimer);
     if (this.moodDetector) this.moodDetector.stop();
   }
 }

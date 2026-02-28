@@ -26,11 +26,30 @@ const MOOD_KEYWORDS = {
     patterns: [],
     weight: 0,
   },
+  determined: {
+    patterns: [/let me try a different/i, /I'll retry/i, /trying again/i,
+               /another approach/i, /let me fix/i, /I can fix/i],
+    weight: 1.0,
+  },
+  proud: {
+    patterns: [/all done/i, /everything.*(works|working|complete)/i,
+               /successfully/i, /implemented/i, /that completes/i,
+               /all.*changes/i],
+    weight: 1.0,
+  },
+  curious: {
+    patterns: [/interesting/i, /let me (look|explore|investigate|check|examine)/i,
+               /I wonder/i, /let's see/i, /looking (at|into|for)/i],
+    weight: 0.8,
+  },
 };
 
 class MoodDetector {
   constructor() {
-    this.scores = { frustrated: 0, celebrating: 0, confused: 0, excited: 0, sleepy: 0 };
+    this.scores = {
+      frustrated: 0, celebrating: 0, confused: 0, excited: 0, sleepy: 0,
+      determined: 0, proud: 0, curious: 0,
+    };
     this.currentMood = null;
     this.history = [];
     this.historyLimit = 20;
@@ -38,6 +57,9 @@ class MoodDetector {
     this.decayRate = 0.3;
     this.moodThreshold = 2.0;
     this.onMood = null;
+    this.lastErrorTime = 0;
+    this.lastErrorTool = null;
+    this.sessionToolCount = 0;
 
     this._startDecay();
   }
@@ -63,6 +85,24 @@ class MoodDetector {
           if (/PASS|success|passed|All \d+ tests/i.test(block.content)) {
             this.scores.celebrating += 1.5;
           }
+        }
+      }
+
+      // Track errors for determined detection
+      if (block.type === 'tool_result' && (block.is_error ||
+          (typeof block.content === 'string' && /Error|FAIL|error|exception/i.test(block.content)))) {
+        this.lastErrorTime = now;
+        if (this.history.length > 0) {
+          this.lastErrorTool = this.history[this.history.length - 1].toolName;
+        }
+      }
+
+      // Determined: same tool used within 5s of error
+      if (block.type === 'tool_use') {
+        this.sessionToolCount++;
+        if (this.lastErrorTool && block.name === this.lastErrorTool && now - this.lastErrorTime < 5000) {
+          this.scores.determined += 2.0;
+          this.lastErrorTool = null;
         }
       }
 
@@ -98,6 +138,15 @@ class MoodDetector {
         this.scores.excited += 0.5;
       }
     }
+
+    // Curious: 5+ recent research tools with no edits
+    const researchTools = new Set(['Read', 'Grep', 'Glob', 'WebFetch', 'WebSearch']);
+    const editTools = new Set(['Edit', 'Write', 'NotebookEdit']);
+    const allResearch = recent.every(e => researchTools.has(e.toolName));
+    const anyEdits = recent.some(e => editTools.has(e.toolName));
+    if (allResearch && !anyEdits && recent.length >= 5) {
+      this.scores.curious += 0.5;
+    }
   }
 
   _analyzeSleepy(now) {
@@ -110,6 +159,15 @@ class MoodDetector {
         this.scores.sleepy += 1.0;
       } else if (gap > 60000) {
         this.scores.sleepy += 0.5;
+      }
+    }
+
+    // Proud: lots of work then a gap (settling down)
+    if (this.sessionToolCount >= 10 && this.history.length > 0) {
+      const lastEvent = this.history[this.history.length - 1];
+      const gap = now - lastEvent.timestamp;
+      if (gap > 15000 && gap < 60000) {
+        this.scores.proud += 0.5;
       }
     }
   }

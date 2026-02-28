@@ -36,6 +36,9 @@ const STATION_CONFIG = {
   thinking:    { furniture: 'armchair',   direction: 'sw', offsetX: 30,  offsetY: 40 },
   listening:   { furniture: 'stool',      direction: 's',  offsetX: 30,  offsetY: 30 },
   idle:        { furniture: 'hammock',    direction: 'se', offsetX: -20, offsetY: 40 },
+  browsing:   { furniture: 'terminal',   direction: 's',  offsetX: -30, offsetY: 40 },
+  building:   { furniture: 'workbench',  direction: 'se', offsetX: -30, offsetY: 40 },
+  delegating: { furniture: 'armchair',   direction: 'sw', offsetX: 30,  offsetY: 40 },
 };
 
 // Fallback static positions (used before furniture is registered)
@@ -46,6 +49,9 @@ const STATIONS = {
   thinking:    { x: 180, y: 270, direction: 'sw' },
   listening:   { x: 210, y: 310, direction: 's' },
   idle:        { x: 240, y: 310, direction: 'se' },
+  browsing:   { x: 310, y: 205, direction: 's' },
+  building:   { x: 280, y: 270, direction: 'se' },
+  delegating: { x: 180, y: 270, direction: 'sw' },
 };
 
 class SceneEngine {
@@ -90,7 +96,21 @@ class SceneEngine {
     this.isMoving = false; // true while tweening to target
 
     // Thought bubble
-    this.thoughtBubble = null; // { emoji, opacity, timer }
+    this.thoughtBubble = null; // { emoji, opacity, fadeIn }
+    this.moodBubble = null;    // { emoji, opacity, fadeIn }
+
+    // One-shot animation (flinch, eureka, victory)
+    this.oneShotAnim = null;
+    this.oneShotPrevEmoji = null;
+
+    // Idle wandering
+    this.wanderTimer = null;
+    this.wanderState = 'idle';
+    this.isWandering = false;
+    this.wanderEmojis = ['🤔', '🔧', '📦', '✨', '🔍', '🎵'];
+
+    // Flow state
+    this.inFlow = false;
 
     // Callbacks
     this.onRenderEffects = null;
@@ -228,6 +248,10 @@ class SceneEngine {
    * Uses walking animation when the character is moving between stations.
    */
   _currentVariant() {
+    if (this.oneShotAnim) {
+      return this.oneShotAnim.variant;
+    }
+
     // Use walking animation while moving (supports n, s, se, sw)
     if (this.isMoving) {
       const walkKey = `walking-${this.charDirection}`;
@@ -274,47 +298,80 @@ class SceneEngine {
     thinking:    '💭',
     listening:   '👂',
     idle:        '😴',
+    browsing:    '🌐',
+    building:    '🏗️',
+    delegating:  '🫡',
+  };
+
+  static MOOD_EMOJIS = {
+    frustrated:  '😤',
+    celebrating: '🎉',
+    confused:    '❓',
+    excited:     '🔥',
+    sleepy:      '💤',
+    determined:  '💪',
+    proud:       '🌟',
+    curious:     '🔎',
   };
 
   _showThoughtBubble(state) {
     const emoji = SceneEngine.THOUGHT_EMOJIS[state];
     if (!emoji) return;
-    this.thoughtBubble = { emoji, opacity: 1.0, timer: 120 }; // ~2 sec at 60fps
+    // Persistent bubble — stays until state changes
+    this.thoughtBubble = { emoji, opacity: 0, fadeIn: true };
+  }
+
+  _showMoodEmoji(mood) {
+    if (mood) {
+      const emoji = SceneEngine.MOOD_EMOJIS[mood];
+      if (emoji) {
+        this.moodBubble = { emoji, opacity: 0, fadeIn: true };
+        return;
+      }
+    }
+    // No mood or unknown mood — fade out
+    if (this.moodBubble) {
+      this.moodBubble.fadeIn = false;
+    }
   }
 
   _updateThoughtBubble() {
-    if (!this.thoughtBubble) return;
-    this.thoughtBubble.timer--;
-    if (this.thoughtBubble.timer <= 0) {
-      this.thoughtBubble.opacity -= 0.03;
-      if (this.thoughtBubble.opacity <= 0) {
-        this.thoughtBubble = null;
+    // Update state bubble (persistent, fade in only)
+    if (this.thoughtBubble) {
+      if (this.thoughtBubble.fadeIn && this.thoughtBubble.opacity < 1) {
+        this.thoughtBubble.opacity = Math.min(1, this.thoughtBubble.opacity + 0.05);
+      }
+    }
+    // Update mood bubble (fade in/out)
+    if (this.moodBubble) {
+      if (this.moodBubble.fadeIn && this.moodBubble.opacity < 1) {
+        this.moodBubble.opacity = Math.min(1, this.moodBubble.opacity + 0.05);
+      } else if (!this.moodBubble.fadeIn) {
+        this.moodBubble.opacity -= 0.03;
+        if (this.moodBubble.opacity <= 0) {
+          this.moodBubble = null;
+        }
       }
     }
   }
 
-  _drawThoughtBubble() {
-    if (!this.thoughtBubble) return;
-    const ctx = this.ctx;
-    const { emoji, opacity } = this.thoughtBubble;
-
+  _drawBubble(ctx, emoji, opacity, bx, by, showTrail) {
     ctx.save();
     ctx.globalAlpha = opacity;
 
-    // Position above character head
-    const bx = this.charX + 20;
-    const by = this.charY - 52;
-
-    // Small bubble trail
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
-    ctx.beginPath();
-    ctx.arc(this.charX + 6, this.charY - 36, 3, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(this.charX + 12, this.charY - 42, 4, 0, Math.PI * 2);
-    ctx.fill();
+    if (showTrail) {
+      // Small bubble trail
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+      ctx.beginPath();
+      ctx.arc(this.charX + 6, this.charY - 36, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(this.charX + 12, this.charY - 42, 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
     // Main bubble background
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
     const bw = 24;
     const bh = 22;
     ctx.beginPath();
@@ -340,7 +397,28 @@ class SceneEngine {
     ctx.restore();
   }
 
+  _drawThoughtBubble() {
+    const ctx = this.ctx;
+    // State bubble (with trail dots)
+    if (this.thoughtBubble && this.thoughtBubble.opacity > 0) {
+      const bx = this.charX + 20;
+      const by = this.charY - 52;
+      this._drawBubble(ctx, this.thoughtBubble.emoji, this.thoughtBubble.opacity, bx, by, true);
+    }
+    // Mood bubble (above state bubble, no trail)
+    if (this.moodBubble && this.moodBubble.opacity > 0) {
+      const bx = this.charX + 20;
+      const by = this.charY - 78;
+      this._drawBubble(ctx, this.moodBubble.emoji, this.moodBubble.opacity, bx, by, false);
+    }
+  }
+
   setState(state) {
+    this.stopWandering();
+    if (this.oneShotAnim) {
+      this.oneShotAnim = null;
+      this.oneShotPrevEmoji = null;
+    }
     if (state === this.currentState) return;
     if (!STATIONS[state] && !STATION_CONFIG[state]) return;
 
@@ -372,10 +450,91 @@ class SceneEngine {
 
   setMood(mood) {
     this.currentMood = mood;
+    this._showMoodEmoji(mood);
   }
 
   getMood() {
     return this.currentMood;
+  }
+
+  playOneShot(animKey, { emoji = null, onComplete = null } = {}) {
+    const variants = this.animationPool.get(animKey);
+    if (!variants || variants.length === 0) return;
+    const variant = variants[0];
+
+    this.oneShotPrevEmoji = this.thoughtBubble ? this.thoughtBubble.emoji : null;
+    this.oneShotAnim = { variant, frameIdx: 0, accum: 0, emoji, onComplete };
+
+    if (emoji) {
+      this.thoughtBubble = { emoji, opacity: 1, fadeIn: true };
+    }
+  }
+
+  setFlow(flowing) {
+    this.inFlow = flowing;
+  }
+
+  // ── Idle wandering ──────────────────────────────────────────────────
+
+  startWandering() {
+    if (this.isWandering) return;
+    this.isWandering = true;
+    this._wanderNext();
+  }
+
+  stopWandering() {
+    this.isWandering = false;
+    this.wanderState = 'idle';
+    if (this.wanderTimer) {
+      clearTimeout(this.wanderTimer);
+      this.wanderTimer = null;
+    }
+  }
+
+  _wanderNext() {
+    if (!this.isWandering) return;
+
+    const candidates = this.furniture.filter(f => {
+      const dx = f.x + 32 - this.charX;
+      const dy = f.y + 32 - this.charY;
+      return Math.sqrt(dx * dx + dy * dy) > 40;
+    });
+    if (candidates.length === 0) return;
+
+    const target = candidates[Math.floor(Math.random() * candidates.length)];
+    const offsetX = (Math.random() - 0.5) * 30;
+    const clamped = this._clampToDiamond(target.x + 32 + offsetX, target.y + 32 + 40);
+    this.targetX = clamped.x;
+    this.targetY = clamped.y;
+    this.wanderState = 'walking';
+    this.wanderTarget = target.name;
+  }
+
+  _updateWander() {
+    if (!this.isWandering) return;
+
+    if (this.wanderState === 'walking' && !this.isMoving) {
+      this.wanderState = 'interacting';
+      const dir = this.charDirection === 'n' ? 'north' :
+                  this.charDirection === 's' ? 'south' :
+                  this.charDirection === 'sw' ? 'west' : 'east';
+      const animType = Math.random() > 0.5 ? 'pushing' : 'picking-up';
+      const animKey = `${animType}-${dir}`;
+
+      const emoji = this.wanderEmojis[Math.floor(Math.random() * this.wanderEmojis.length)];
+
+      this.playOneShot(animKey, {
+        emoji,
+        onComplete: () => {
+          if (!this.isWandering) return;
+          this.wanderState = 'pausing';
+          const delay = 4000 + Math.random() * 4000;
+          this.wanderTimer = setTimeout(() => {
+            if (this.isWandering) this._wanderNext();
+          }, delay);
+        },
+      });
+    }
   }
 
   // ── Display controls ───────────────────────────────────────────────
@@ -422,6 +581,7 @@ class SceneEngine {
     this.lastTimestamp = timestamp;
 
     this._updateTween();
+    this._updateWander();
     this._updateAnimation(dt);
     this._updateThoughtBubble();
     this._render();
@@ -503,18 +663,32 @@ class SceneEngine {
 
     while (this.animAccum >= frameDuration) {
       this.animAccum -= frameDuration;
-      this.animFrame++;
 
-      // Detect loop boundary
-      if (this.animFrame >= variant.frames.length) {
-        this.animFrame = 0;
-
-        // 30% chance to swap variant on loop cycle
-        if (Math.random() < 0.3) {
-          const state = this.currentState;
-          const idx = this._pickVariant(state);
-          this.activeVariant.set(state, idx);
-          this.lastVariant.set(state, idx);
+      if (this.oneShotAnim) {
+        this.oneShotAnim.frameIdx++;
+        this.animFrame = this.oneShotAnim.frameIdx;
+        if (this.oneShotAnim.frameIdx >= variant.frames.length) {
+          const cb = this.oneShotAnim.onComplete;
+          if (this.oneShotPrevEmoji) {
+            this.thoughtBubble = { emoji: this.oneShotPrevEmoji, opacity: 1, fadeIn: true };
+          }
+          this.oneShotAnim = null;
+          this.oneShotPrevEmoji = null;
+          this.animFrame = 0;
+          this.animAccum = 0;
+          if (cb) cb();
+          return;
+        }
+      } else {
+        this.animFrame++;
+        if (this.animFrame >= variant.frames.length) {
+          this.animFrame = 0;
+          if (Math.random() < 0.3) {
+            const state = this.currentState;
+            const idx = this._pickVariant(state);
+            this.activeVariant.set(state, idx);
+            this.lastVariant.set(state, idx);
+          }
         }
       }
     }

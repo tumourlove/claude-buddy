@@ -21,7 +21,7 @@ Claude Buddy is a desktop companion Electron app featuring an animated pixel-art
 Claude Code JSONL logs (~/.claude/projects/)
   → ClaudeDetector (chokidar file watcher, 500ms polling)
   → State/Mood extracted from tool_use entries
-  → IPC to renderer (claude-state, claude-mood, scale-changed)
+  → IPC to renderer (claude-state, claude-mood, claude-flow, claude-flinch, claude-eureka, scale-changed)
   → SceneEngine (canvas) + SoundSystem (Web Audio API)
 ```
 
@@ -36,10 +36,10 @@ Claude Code JSONL logs (~/.claude/projects/)
 | Module | Role |
 |--------|------|
 | `src/scene-engine.js` | Isometric diamond-room renderer with layered drawing, furniture management, character tweening, animation pool system, and painter's algorithm depth sorting |
-| `src/detector.js` | Watches `~/.claude/projects/` for JSONL changes, maps tool names to states (Read→researching, Edit→coding, Bash→bash, Task→thinking, AskUserQuestion→listening) |
-| `src/mood-detector.js` | Keyword/pace analysis with exponential decay scoring; detects frustrated, celebrating, confused, excited, sleepy moods |
-| `src/mood-effects.js` | Mood-reactive particle effects (red bursts, gold sparks, purple ?, orange sparks, gray zzz) |
-| `src/sounds.js` | Procedural audio via Web Audio API oscillators/noise; state sounds (one-shot) and coding loop (continuous clicking) |
+| `src/detector.js` | Watches `~/.claude/projects/` for JSONL changes, maps tool names to states, detects flow state (5+ tools in 15s), error flinch (tool_result errors), eureka moment (research→edit transition) |
+| `src/mood-detector.js` | Keyword/pace analysis with exponential decay scoring; detects frustrated, celebrating, confused, excited, sleepy, determined, proud, curious moods |
+| `src/mood-effects.js` | Mood-reactive particle effects, flow state aura with speed lines, eureka burst, victory confetti |
+| `src/sounds.js` | SNES-style procedural audio via Web Audio API; state sounds, mood sounds, lo-fi coding music loop (Chrono Trigger style), FF victory fanfare |
 | `src/tray-manager.js` | System tray with green/red icons for connection status |
 
 ### Scene System (Isometric Room)
@@ -57,9 +57,13 @@ The scene renders a diamond-shaped isometric room with:
 - Character sprites: 96×96 PNG files in `assets/sprites/`
 - Static rotations: `clawd-sw.png`, `clawd-se.png` (west/east facing)
 - Animations: `assets/sprites/animations/{name}/{direction}/frame_NNN.png`
-- Available animations: breathing-idle (4 frames), walking (6)
+- Available animations: breathing-idle (4f), walking (6f), pushing (6f), picking-up (5f), fight-stance-idle-8-frames (8f), fireball (6f), falling-back-death (7f), front-flip (6f)
 - Walking animations play automatically when the character moves between stations
-- Thought bubbles with emoji appear above the character on state changes (💻 coding, 📖 researching, ⚡ bash, 💭 thinking, 👂 listening, 😴 idle)
+- One-shot animation system: `playOneShot(animKey, { emoji, onComplete })` — temporarily plays a non-looping animation then reverts
+- Idle wandering: after 15s idle, CLAWD walks to random furniture, plays pushing/picking-up animations with curiosity emojis
+- Thought bubbles persist for the duration of a state (💻 coding, 📖 researching, ⚡ bash, 💭 thinking, 👂 listening, 😴 idle, 🌐 browsing, 🏗️ building, 🫡 delegating)
+- Mood bubbles appear above thought bubbles (😤 frustrated, 🎉 celebrating, ❓ confused, 🔥 excited, 💤 sleepy, 💪 determined, 🌟 proud, 🔎 curious)
+- Special reactive animations: 💥 flinch on errors, 💡 eureka on research→edit, 🎉 victory flip on celebrating
 - Scene tiles: `assets/scene/` — floor-tile.png (isometric), furniture props (isometric blocks)
 - Animation pool: multiple variants per state, randomly selected to avoid repetition (30% swap chance per loop)
 
@@ -88,7 +92,7 @@ create_character:
   shading: "detailed shading"
 ```
 
-Then queue animations (breathing-idle, walking, pushing, picking-up, drinking are used):
+Then queue animations (breathing-idle, walking, pushing, picking-up, fight-stance-idle-8-frames, fireball, falling-back-death, front-flip are used):
 ```
 animate_character:
   character_id: "<id>"
@@ -141,13 +145,26 @@ The renderer expects these exact filenames:
 Pixel art generation API available via MCP. All creation tools are async — they return a job ID and take a few minutes to process. Use the corresponding `get_*` tool to poll for completion.
 
 - **Characters:** `create_character` → `get_character`. Supports humanoid/quadruped, 4/8 directions, proportion presets (chibi, cartoon, heroic, etc.). Max ~20 concurrent jobs.
-- **Animations:** `animate_character` with a `template_animation_id`. Each animation uses 4 job slots (one per direction). Good ones: breathing-idle, walking, pushing, picking-up, drinking. Avoid: crouching (looks weird).
+- **Animations:** `animate_character` with a `template_animation_id`. Each animation uses 4 job slots (one per direction). Good ones: breathing-idle, walking, pushing, picking-up, fight-stance-idle-8-frames, fireball, falling-back-death, front-flip. Avoid: crouching (looks weird).
 - **Isometric tiles:** `create_isometric_tile` — thin (floors), thick (platforms), or block (furniture/cubes). Downloads work reliably. Use `detail: "highly detailed"` (not "high detail").
 - **Map objects:** `create_map_object` — transparent-background props. Higher quality but download endpoint returns 500 errors frequently.
 - **Top-down tilesets:** `create_topdown_tileset` — 16-tile Wang sets for terrain transitions
 - **Sidescroller tilesets:** `create_sidescroller_tileset` — 16-tile platformer sets
 
 Docs: https://api.pixellab.ai/mcp/docs
+
+## Reactive Features
+
+| Feature | Detection | Animation | Sound |
+|---------|-----------|-----------|-------|
+| **Flow state** | 5+ tool calls in 15s sliding window | fight-stance-idle-8-frames + gold aura + speed lines | Rapid tool sounds provide cue |
+| **Error flinch** | `is_error` or error regex in tool_result | falling-back-death one-shot + 💥 | Detuned square blip + noise |
+| **Eureka moment** | 3+ research states → coding/bash | fireball one-shot + 💡 + gold sparkles | Ascending triangle arpeggio |
+| **Victory** | `celebrating` mood triggers | front-flip one-shot + confetti | FF victory fanfare |
+| **Idle wandering** | 15s of idle state | Walks to random furniture, pushes/picks-up | — |
+| **Coding music** | 10s sustained coding state | — | Lo-fi 8-bar pentatonic loop (Chrono Trigger style) |
+
+**Demo mode**: Press `D` to cycle through all states and moods automatically (2.5s intervals).
 
 ## Platform Notes
 
