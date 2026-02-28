@@ -112,7 +112,7 @@ create_isometric_tile:
   size: 64, tile_shape: "thin tile", detail: "highly detailed"
 ```
 
-Furniture props (block shape, 6 pieces):
+Furniture props (block shape, 4 pieces):
 ```
 create_isometric_tile:
   description: "<furniture description>"
@@ -126,7 +126,7 @@ Download via `get_isometric_tile` → download URL (isometric tile downloads wor
 ### 3. Update Scene
 
 - Place floor tile at `assets/scene/floor-tile.png`
-- Place 6 furniture props at `assets/scene/{workbench,bookshelf,terminal,armchair,stool,hammock}.png`
+- Place 4 furniture props at `assets/scene/{workbench,bookshelf,terminal,armchair}.png`
 - Update wall colors in `_drawProceduralRoom()` in `src/scene-engine.js`
 - Update mood effect colors in `src/mood-effects.js` if desired
 - Adjust `ROOM` geometry constants if needed
@@ -138,7 +138,7 @@ The renderer expects these exact filenames:
 - `assets/sprites/clawd-se.png` — east-facing static sprite
 - `assets/sprites/animations/{anim}/{direction}/frame_NNN.png`
 - `assets/scene/floor-tile.png` — isometric floor tile
-- `assets/scene/{workbench,bookshelf,terminal,armchair,stool,hammock}.png` — furniture
+- `assets/scene/{workbench,bookshelf,terminal,armchair}.png` — furniture
 
 ## MCP Servers
 

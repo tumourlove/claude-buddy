@@ -34,8 +34,8 @@ const STATION_CONFIG = {
   researching: { furniture: 'bookshelf',  direction: 'n',  offsetX: 30,  offsetY: 40 },
   bash:        { furniture: 'terminal',   direction: 's',  offsetX: -30, offsetY: 40 },
   thinking:    { furniture: 'armchair',   direction: 'sw', offsetX: 30,  offsetY: 40 },
-  listening:   { furniture: 'stool',      direction: 's',  offsetX: 30,  offsetY: 30 },
-  idle:        { furniture: 'hammock',    direction: 'se', offsetX: -20, offsetY: 40 },
+  listening:   { furniture: 'armchair',   direction: 'sw', offsetX: 30,  offsetY: 40 },
+  idle:        { furniture: 'armchair',   direction: 'se', offsetX: -30, offsetY: 40 },
   browsing:   { furniture: 'terminal',   direction: 's',  offsetX: -30, offsetY: 40 },
   building:   { furniture: 'workbench',  direction: 'se', offsetX: -30, offsetY: 40 },
   delegating: { furniture: 'armchair',   direction: 'sw', offsetX: 30,  offsetY: 40 },
@@ -47,8 +47,8 @@ const STATIONS = {
   researching: { x: 170, y: 210, direction: 'n' },
   bash:        { x: 310, y: 205, direction: 's' },
   thinking:    { x: 180, y: 270, direction: 'sw' },
-  listening:   { x: 210, y: 310, direction: 's' },
-  idle:        { x: 240, y: 310, direction: 'se' },
+  listening:   { x: 180, y: 270, direction: 'sw' },
+  idle:        { x: 200, y: 280, direction: 'se' },
   browsing:   { x: 310, y: 205, direction: 's' },
   building:   { x: 280, y: 270, direction: 'se' },
   delegating: { x: 180, y: 270, direction: 'sw' },
@@ -784,6 +784,88 @@ class SceneEngine {
       ctx.lineTo(left.x, y2);
       ctx.stroke();
     }
+
+    // ── Window on left wall ──
+    // The left wall is an isometric parallelogram: top edge slopes down-left,
+    // sides go straight down. Window must follow the same geometry.
+    // Wall horizontal axis: top→left direction (isometric slant)
+    const wallDx = (left.x - top.x);
+    const wallDy = (left.y - top.y);
+    // Window position: 30%-65% along wall horizontally, 25%-70% up the wall vertically
+    const wt0 = 0.30, wt1 = 0.65; // horizontal extent along wall
+    const wvTop = 0.70, wvBot = 0.25; // vertical (0=bottom of wall, 1=top)
+    // Four corners of the window parallelogram
+    // Top-left (closer to top vertex, higher on wall)
+    const wTL = { x: top.x + wallDx * wt0, y: (top.y + wallDy * wt0) - wallH * wvTop };
+    // Top-right (closer to left vertex, higher on wall)
+    const wTR = { x: top.x + wallDx * wt1, y: (top.y + wallDy * wt1) - wallH * wvTop };
+    // Bottom-right
+    const wBR = { x: top.x + wallDx * wt1, y: (top.y + wallDy * wt1) - wallH * wvBot };
+    // Bottom-left
+    const wBL = { x: top.x + wallDx * wt0, y: (top.y + wallDy * wt0) - wallH * wvBot };
+
+    // Night sky fill
+    ctx.beginPath();
+    ctx.moveTo(wTL.x, wTL.y); ctx.lineTo(wTR.x, wTR.y);
+    ctx.lineTo(wBR.x, wBR.y); ctx.lineTo(wBL.x, wBL.y);
+    ctx.closePath();
+    ctx.fillStyle = '#131325';
+    ctx.fill();
+
+    // Stars (interpolated within the parallelogram)
+    ctx.fillStyle = '#ffffff';
+    const stars = [[0.2, 0.2], [0.5, 0.15], [0.8, 0.35], [0.3, 0.6], [0.7, 0.7], [0.15, 0.85], [0.6, 0.45]];
+    for (const [u, v] of stars) {
+      // Bilinear interpolation within parallelogram
+      const px = wTL.x + (wTR.x - wTL.x) * u + (wBL.x - wTL.x) * v;
+      const py = wTL.y + (wTR.y - wTL.y) * u + (wBL.y - wTL.y) * v;
+      ctx.fillRect(Math.round(px), Math.round(py), 1, 1);
+    }
+
+    // Moon (crescent)
+    const mU = 0.65, mV = 0.25;
+    const moonX = wTL.x + (wTR.x - wTL.x) * mU + (wBL.x - wTL.x) * mV;
+    const moonY = wTL.y + (wTR.y - wTL.y) * mU + (wBL.y - wTL.y) * mV;
+    ctx.beginPath();
+    ctx.arc(moonX, moonY, 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#f0e68c';
+    ctx.fill();
+    // Crescent cutout
+    ctx.beginPath();
+    ctx.arc(moonX + 2, moonY - 1, 3.5, 0, Math.PI * 2);
+    ctx.fillStyle = '#131325';
+    ctx.fill();
+
+    // Window frame (outer)
+    ctx.strokeStyle = '#5a4020';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(wTL.x, wTL.y); ctx.lineTo(wTR.x, wTR.y);
+    ctx.lineTo(wBR.x, wBR.y); ctx.lineTo(wBL.x, wBL.y);
+    ctx.closePath();
+    ctx.stroke();
+
+    // Cross dividers (matching isometric perspective)
+    ctx.strokeStyle = '#5a4020';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    // Vertical divider (midpoint along wall axis)
+    const midT = (wTL.x + wTR.x) / 2, midTy = (wTL.y + wTR.y) / 2;
+    const midB = (wBL.x + wBR.x) / 2, midBy = (wBL.y + wBR.y) / 2;
+    ctx.moveTo(midT, midTy); ctx.lineTo(midB, midBy);
+    // Horizontal divider (midpoint vertically)
+    const midL = (wTL.x + wBL.x) / 2, midLy = (wTL.y + wBL.y) / 2;
+    const midR = (wTR.x + wBR.x) / 2, midRy = (wTR.y + wBR.y) / 2;
+    ctx.moveTo(midL, midLy); ctx.lineTo(midR, midRy);
+    ctx.stroke();
+
+    // Warm light glow from window onto floor area
+    ctx.fillStyle = 'rgba(255, 220, 150, 0.06)';
+    ctx.beginPath();
+    ctx.moveTo(wBL.x, wBL.y); ctx.lineTo(wBR.x, wBR.y);
+    ctx.lineTo(wBR.x - 20, wBR.y + 40); ctx.lineTo(wBL.x - 20, wBL.y + 40);
+    ctx.closePath();
+    ctx.fill();
 
     // ── Right wall (back-right edge going up) ──
     ctx.beginPath();

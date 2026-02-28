@@ -39,8 +39,6 @@ async function init() {
     engine.loadImage('bookshelf', '../assets/scene/bookshelf.png'),
     engine.loadImage('terminal', '../assets/scene/terminal.png'),
     engine.loadImage('armchair', '../assets/scene/armchair.png'),
-    engine.loadImage('stool', '../assets/scene/stool.png'),
-    engine.loadImage('hammock', '../assets/scene/hammock.png'),
   ]);
 
   // Load animation frames — try each set, skip if not found yet
@@ -166,8 +164,7 @@ async function init() {
   engine.addFurniture('terminal', 270, 165);    // back-right
   engine.addFurniture('workbench', 260, 220);   // mid-right (coding)
   engine.addFurniture('armchair', 140, 230);    // mid-left (thinking)
-  engine.addFurniture('stool', 175, 280);       // front-left (listening)
-  engine.addFurniture('hammock', 250, 275);     // front-right (idle)
+  // stool and hammock removed — listening/idle remap to armchair
 
   // Load saved furniture positions (overrides defaults)
   if (prefs.furniturePositions) {
