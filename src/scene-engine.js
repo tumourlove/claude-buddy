@@ -29,16 +29,19 @@ const ROOM = {
 
 // Station-to-furniture mapping and default direction
 // The character will stand next to the linked furniture piece.
+// Offsets position the character relative to furniture center (32,32).
+// In isometric view: +X = right, +Y = down. "In front of" furniture
+// means down-right or down-left along isometric axes.
 const STATION_CONFIG = {
-  coding:      { furniture: 'workbench',  direction: 'se', offsetX: -30, offsetY: 40 },
-  researching: { furniture: 'bookshelf',  direction: 'n',  offsetX: 30,  offsetY: 40 },
-  bash:        { furniture: 'terminal',   direction: 's',  offsetX: -30, offsetY: 40 },
-  thinking:    { furniture: 'armchair',   direction: 'sw', offsetX: 30,  offsetY: 40 },
-  listening:   { furniture: 'armchair',   direction: 'sw', offsetX: 30,  offsetY: 40 },
-  idle:        { furniture: 'armchair',   direction: 'se', offsetX: -30, offsetY: 40 },
-  browsing:   { furniture: 'terminal',   direction: 's',  offsetX: -30, offsetY: 40 },
-  building:   { furniture: 'workbench',  direction: 'se', offsetX: -30, offsetY: 40 },
-  delegating: { furniture: 'armchair',   direction: 'sw', offsetX: 30,  offsetY: 40 },
+  coding:      { furniture: 'workbench',  direction: 'se', offsetX: 42,  offsetY: 2 },
+  researching: { furniture: 'bookshelf',  direction: 'se', offsetX: 0,   offsetY: 20 },
+  bash:        { furniture: 'terminal',   direction: 'sw', offsetX: -31, offsetY: 26 },
+  thinking:    { furniture: 'armchair',   direction: 'se', offsetX: -20, offsetY: 11 },
+  listening:   { furniture: 'armchair',   direction: 'sw', offsetX: -20, offsetY: 11 },
+  idle:        { furniture: 'armchair',   direction: 'se', offsetX: -20, offsetY: 11 },
+  browsing:    { furniture: 'terminal',   direction: 'sw', offsetX: -31, offsetY: 26 },
+  building:    { furniture: 'workbench',  direction: 'se', offsetX: 42,  offsetY: 2 },
+  delegating:  { furniture: 'armchair',   direction: 'sw', offsetX: -20, offsetY: 11 },
 };
 
 // Fallback static positions (used before furniture is registered)
@@ -712,8 +715,8 @@ class SceneEngine {
       drawables.push({ type: 'furniture', f, sortY: f.y + h });
     }
 
-    // Character sort Y: use a point near the feet (charY is center, +20 toward feet)
-    drawables.push({ type: 'character', sortY: this.charY + 20 });
+    // Character sort Y: use a point near the feet (charY is center, +32 toward feet)
+    drawables.push({ type: 'character', sortY: this.charY + 32 });
 
     // Sort by sortY ascending — things higher on screen draw first (behind)
     drawables.sort((a, b) => a.sortY - b.sortY);
