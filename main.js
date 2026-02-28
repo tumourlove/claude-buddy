@@ -4,6 +4,7 @@ const fs = require('fs');
 const { ClaudeDetector } = require('./src/detector.js');
 const { TrayManager } = require('./src/tray-manager.js');
 const { StatsTracker } = require('./src/stats-tracker.js');
+const { UpdateChecker } = require('./src/update-checker.js');
 
 const PREFS_PATH = path.join(app.getPath('userData'), 'preferences.json');
 
@@ -24,6 +25,7 @@ let prefs;
 let detector;
 let trayManager;
 let stats;
+let updateChecker;
 
 function createWindow() {
   prefs = loadPrefs();
@@ -101,6 +103,14 @@ function createWindow() {
     getPrefs: () => prefs,
     savePrefs: (p) => { Object.assign(prefs, p); savePrefs(prefs); },
     getStats: () => stats,
+  });
+
+  // Check for updates on startup
+  updateChecker = new UpdateChecker(app.getVersion());
+  updateChecker.check().then((update) => {
+    if (update && trayManager) {
+      trayManager.setUpdate(update);
+    }
   });
 
   mainWindow.on('moved', () => {

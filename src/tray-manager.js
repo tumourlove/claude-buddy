@@ -1,4 +1,4 @@
-const { Tray, Menu, nativeImage, app } = require('electron');
+const { Tray, Menu, nativeImage, app, shell } = require('electron');
 const path = require('path');
 
 function formatDuration(ms) {
@@ -32,6 +32,7 @@ class TrayManager {
     }
 
     this.connected = false;
+    this.update = null; // { version, url }
     this._createTray();
 
     // Refresh menu every 30s to update stats
@@ -75,7 +76,15 @@ class TrayManager {
       }
     }
 
+    const updateItems = this.update ? [
+      { label: `Update available: v${this.update.version}`, click: () => {
+        shell.openExternal(this.update.url);
+      }},
+      { type: 'separator' },
+    ] : [];
+
     const menu = Menu.buildFromTemplate([
+      ...updateItems,
       { label: toggleLabel, click: () => {
         if (this.window.isVisible()) {
           this.window.hide();
@@ -111,6 +120,11 @@ class TrayManager {
     ]);
 
     this.tray.setContextMenu(menu);
+  }
+
+  setUpdate(update) {
+    this.update = update;
+    this._updateMenu();
   }
 
   updateIcon(connected) {

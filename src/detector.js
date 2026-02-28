@@ -205,7 +205,12 @@ class ClaudeDetector {
   _resetIdleTimer() {
     if (this.idleTimer) clearTimeout(this.idleTimer);
     this.idleTimer = setTimeout(() => {
-      if (this.onState) this.onState('idle');
+      if (this.isConnected) {
+        // Still connected but no tool calls — Claude is thinking
+        if (this.onState) this.onState('thinking');
+      } else {
+        if (this.onState) this.onState('idle');
+      }
     }, this.idleTimeout);
   }
 
