@@ -1,6 +1,6 @@
 {
   "name": "claude-buddy",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "Desktop companion that reacts to Claude Code activity",
   "main": "main.js",
   "scripts": {
@@ -9,7 +9,12 @@
     "dist": "electron-builder",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": ["electron", "claude", "desktop-companion", "pixel-art"],
+  "keywords": [
+    "electron",
+    "claude",
+    "desktop-companion",
+    "pixel-art"
+  ],
   "author": "tumourlove",
   "homepage": "https://github.com/tumourlove/claude-buddy",
   "repository": {
