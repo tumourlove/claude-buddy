@@ -153,7 +153,18 @@ function createWindow() {
 process.stdout?.on('error', () => {});
 process.stderr?.on('error', () => {});
 
-app.whenReady().then(createWindow);
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (mainWindow) {
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+  app.whenReady().then(createWindow);
+}
 app.on('window-all-closed', (e) => {
   // Don't quit when window is hidden — tray keeps app alive
 });
