@@ -1,4 +1,4 @@
-const { Tray, Menu, nativeImage, app, shell } = require('electron');
+const { Tray, Menu, nativeImage, app } = require('electron');
 const path = require('path');
 
 function formatDuration(ms) {
@@ -9,12 +9,13 @@ function formatDuration(ms) {
 }
 
 class TrayManager {
-  constructor(window, { getPrefs, savePrefs, getStats, checkForUpdates }) {
+  constructor(window, { getPrefs, savePrefs, getStats, checkForUpdates, installUpdate }) {
     this.window = window;
     this.getPrefs = getPrefs;
     this.savePrefs = savePrefs;
     this.getStats = getStats;
     this.checkForUpdates = checkForUpdates;
+    this.installUpdate = installUpdate;
     this.tray = null;
 
     const assetsDir = path.join(__dirname, '..', 'assets', 'tray');
@@ -33,7 +34,9 @@ class TrayManager {
     }
 
     this.connected = false;
-    this.update = null; // { version, url }
+    // Update states: null, 'downloading', 'ready', 'current'
+    this.updateStatus = null;
+    this.updateVersion = null;
     this._createTray();
 
     // Refresh menu every 30s to update stats
@@ -52,6 +55,23 @@ class TrayManager {
         this.window.show();
       }
     });
+  }
+
+  _getUpdateMenuItem() {
+    switch (this.updateStatus) {
+      case 'downloading':
+        return { label: `Downloading v${this.updateVersion}...`, enabled: false };
+      case 'ready':
+        return { label: `Restart to update to v${this.updateVersion}`, click: () => {
+          this.installUpdate();
+        }};
+      case 'current':
+        return { label: 'Up to date!', enabled: false };
+      default:
+        return { label: 'Check for Updates', click: () => {
+          this.checkForUpdates();
+        }};
+    }
   }
 
   _updateMenu() {
@@ -77,32 +97,8 @@ class TrayManager {
       }
     }
 
-    const updateItems = this.update ? [
-      { label: `Download v${this.update.version}`, click: () => {
-        shell.openExternal(this.update.url);
-      }},
-    ] : [
-      { label: 'Check for Updates', click: () => {
-        if (this.checkForUpdates) {
-          this.checkForUpdates().then((update) => {
-            if (update) {
-              this.setUpdate(update);
-            } else {
-              this.updateLabel = 'Up to date!';
-              this._updateMenu();
-            }
-          });
-        }
-      }},
-    ];
-
-    if (this.updateLabel && !this.update) {
-      updateItems.length = 0;
-      updateItems.push({ label: this.updateLabel, enabled: false });
-    }
-
     const menu = Menu.buildFromTemplate([
-      ...updateItems,
+      this._getUpdateMenuItem(),
       { type: 'separator' },
       { label: toggleLabel, click: () => {
         if (this.window.isVisible()) {
@@ -141,8 +137,9 @@ class TrayManager {
     this.tray.setContextMenu(menu);
   }
 
-  setUpdate(update) {
-    this.update = update;
+  setUpdateStatus(status, version) {
+    this.updateStatus = status;
+    if (version) this.updateVersion = version;
     this._updateMenu();
   }
 

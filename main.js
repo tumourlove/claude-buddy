@@ -98,22 +98,29 @@ function createWindow() {
   };
   detector.start();
 
+  // Auto-updater
+  updateChecker = new UpdateChecker();
+  updateChecker.onUpdateAvailable = (version) => {
+    if (trayManager) trayManager.setUpdateStatus('downloading', version);
+  };
+  updateChecker.onUpdateDownloaded = (version) => {
+    if (trayManager) trayManager.setUpdateStatus('ready', version);
+  };
+  updateChecker.onNoUpdate = () => {
+    if (trayManager) trayManager.setUpdateStatus('current');
+  };
+
   // Create system tray
   trayManager = new TrayManager(mainWindow, {
     getPrefs: () => prefs,
     savePrefs: (p) => { Object.assign(prefs, p); savePrefs(prefs); },
     getStats: () => stats,
-    checkForUpdates: doUpdateCheck,
+    checkForUpdates: () => updateChecker.check(),
+    installUpdate: () => updateChecker.installAndRestart(),
   });
 
-  // Check for updates on startup
-  updateChecker = new UpdateChecker(app.getVersion());
-  const doUpdateCheck = () => updateChecker.check();
-  doUpdateCheck().then((update) => {
-    if (update && trayManager) {
-      trayManager.setUpdate(update);
-    }
-  });
+  // Check on startup
+  updateChecker.check();
 
   mainWindow.on('moved', () => {
     const [x, y] = mainWindow.getPosition();

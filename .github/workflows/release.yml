@@ -28,4 +28,5 @@ jobs:
           files: |
             dist/Claude.Buddy.Setup.*.exe
             dist/Claude.Buddy-portable.exe
+            dist/latest.yml
           draft: true

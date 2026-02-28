@@ -1,4 +1,8 @@
 appId: com.claude-buddy.app
+publish:
+  provider: github
+  owner: tumourlove
+  repo: claude-buddy
 productName: Claude Buddy
 directories:
   output: dist

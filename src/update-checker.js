@@ -1,62 +1,42 @@
-const { net, shell } = require('electron');
-
-const REPO = 'tumourlove/claude-buddy';
-const API_URL = `https://api.github.com/repos/${REPO}/releases/latest`;
+const { autoUpdater } = require('electron-updater');
+const { app } = require('electron');
 
 class UpdateChecker {
-  constructor(currentVersion) {
-    this.currentVersion = currentVersion;
-    this.latestVersion = null;
-    this.downloadUrl = null;
-  }
+  constructor() {
+    this.onUpdateAvailable = null;
+    this.onUpdateDownloaded = null;
+    this.onNoUpdate = null;
 
-  check() {
-    return new Promise((resolve) => {
-      const request = net.request(API_URL);
-      request.setHeader('User-Agent', 'claude-buddy');
+    autoUpdater.autoDownload = true;
+    autoUpdater.autoInstallOnAppQuit = true;
 
-      let body = '';
-      request.on('response', (response) => {
-        response.on('data', (chunk) => { body += chunk.toString(); });
-        response.on('end', () => {
-          try {
-            const release = JSON.parse(body);
-            const tag = release.tag_name; // e.g. "v1.2.0"
-            if (!tag) return resolve(null);
+    autoUpdater.on('update-available', (info) => {
+      if (this.onUpdateAvailable) {
+        this.onUpdateAvailable(info.version);
+      }
+    });
 
-            this.latestVersion = tag.replace(/^v/, '');
-            this.downloadUrl = release.html_url;
+    autoUpdater.on('update-downloaded', (info) => {
+      if (this.onUpdateDownloaded) {
+        this.onUpdateDownloaded(info.version);
+      }
+    });
 
-            if (this._isNewer(this.latestVersion, this.currentVersion)) {
-              resolve({ version: this.latestVersion, url: this.downloadUrl });
-            } else {
-              resolve(null);
-            }
-          } catch {
-            resolve(null);
-          }
-        });
-      });
+    autoUpdater.on('update-not-available', () => {
+      if (this.onNoUpdate) this.onNoUpdate();
+    });
 
-      request.on('error', () => resolve(null));
-      request.end();
+    autoUpdater.on('error', (err) => {
+      console.log('[claude-buddy] Auto-update error:', err.message);
     });
   }
 
-  openDownloadPage() {
-    if (this.downloadUrl) {
-      shell.openExternal(this.downloadUrl);
-    }
+  check() {
+    autoUpdater.checkForUpdates().catch(() => {});
   }
 
-  _isNewer(latest, current) {
-    const a = latest.split('.').map(Number);
-    const b = current.split('.').map(Number);
-    for (let i = 0; i < 3; i++) {
-      if ((a[i] || 0) > (b[i] || 0)) return true;
-      if ((a[i] || 0) < (b[i] || 0)) return false;
-    }
-    return false;
+  installAndRestart() {
+    autoUpdater.quitAndInstall(false, true);
   }
 }
 
