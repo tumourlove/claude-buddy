@@ -1,6 +1,6 @@
 {
   "name": "claude-buddy",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Desktop companion that reacts to Claude Code activity",
   "main": "main.js",
   "scripts": {
