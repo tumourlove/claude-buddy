@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const { ClaudeDetector } = require('./src/detector.js');
 const { TrayManager } = require('./src/tray-manager.js');
+const { StatsTracker } = require('./src/stats-tracker.js');
 
 const PREFS_PATH = path.join(app.getPath('userData'), 'preferences.json');
 
@@ -22,6 +23,7 @@ let mainWindow;
 let prefs;
 let detector;
 let trayManager;
+let stats;
 
 function createWindow() {
   prefs = loadPrefs();
@@ -57,8 +59,13 @@ function createWindow() {
   // Start Claude Code log detector
   const home = require('os').homedir();
   const logsPath = path.join(home, '.claude', 'projects');
+  stats = new StatsTracker();
   detector = new ClaudeDetector(logsPath);
+  detector.onToolCall = (toolName) => {
+    stats.recordToolCall(toolName);
+  };
   detector.onState = (state) => {
+    stats.recordStateChange(state);
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('claude-state', state);
     }
@@ -72,6 +79,7 @@ function createWindow() {
     }
   };
   detector.onFlow = (flowing) => {
+    stats.recordFlowChange(flowing);
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('claude-flow', flowing);
     }
@@ -89,7 +97,11 @@ function createWindow() {
   detector.start();
 
   // Create system tray
-  trayManager = new TrayManager(mainWindow);
+  trayManager = new TrayManager(mainWindow, {
+    getPrefs: () => prefs,
+    savePrefs: (p) => { Object.assign(prefs, p); savePrefs(prefs); },
+    getStats: () => stats,
+  });
 
   mainWindow.on('moved', () => {
     const [x, y] = mainWindow.getPosition();

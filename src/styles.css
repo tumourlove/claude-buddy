@@ -28,8 +28,8 @@ html, body {
 }
 
 #ctx-menu {
-  background: rgba(30, 20, 10, 0.92);
-  border: 1px solid #e8a44a;
+  background: rgba(45, 30, 50, 0.94);
+  border: 1px solid rgba(200, 140, 180, 0.5);
   border-radius: 6px;
   padding: 4px 0;
   min-width: 150px;
@@ -39,19 +39,19 @@ html, body {
 
 .ctx-item {
   padding: 6px 14px;
-  color: #e8a44a;
+  color: #d4b8c8;
   font-family: 'Consolas', monospace;
   font-size: 12px;
   cursor: pointer;
 }
 
 .ctx-item:hover {
-  background: rgba(232, 164, 74, 0.2);
+  background: rgba(200, 140, 180, 0.18);
 }
 
 .ctx-separator {
   height: 1px;
-  background: #e8a44a44;
+  background: rgba(200, 140, 180, 0.25);
   margin: 4px 0;
 }
 
@@ -63,7 +63,7 @@ html, body {
 
 .ctx-volume input[type="range"] {
   width: 80px;
-  accent-color: #e8a44a;
+  accent-color: #c89ab4;
 }
 
 @keyframes bounce {
@@ -75,40 +75,3 @@ html, body {
   animation: bounce 0.3s ease;
 }
 
-#about-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.6);
-  z-index: 2000;
-  -webkit-app-region: no-drag;
-  cursor: pointer;
-}
-
-.about-box {
-  text-align: center;
-  color: #e8a44a;
-  font-family: 'Consolas', monospace;
-}
-
-.about-box pre {
-  font-size: 14px;
-  margin-bottom: 8px;
-  color: #f0c040;
-}
-
-.about-box p {
-  font-size: 11px;
-  margin: 4px 0;
-}
-
-.about-close {
-  opacity: 0.5;
-  font-size: 10px !important;
-  margin-top: 12px !important;
-}

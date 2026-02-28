@@ -428,18 +428,12 @@ function showContextMenu(prefs) {
   const menu = document.createElement('div');
   menu.id = 'ctx-menu';
   menu.innerHTML = `
-    <div class="ctx-item" data-action="scale-up">Bigger</div>
-    <div class="ctx-item" data-action="scale-down">Smaller</div>
-    <div class="ctx-separator"></div>
-    <div class="ctx-item" data-action="toggle-top">${prefs.alwaysOnTop ? '\u2713 ' : '  '}Always on Top</div>
-    <div class="ctx-item" data-action="toggle-room">${prefs.showRoom !== false ? '\u2713 ' : '  '}Show Room</div>
     <div class="ctx-item" data-action="toggle-mute">${prefs.muted ? '\u2713 ' : '  '}Muted</div>
     <div class="ctx-item ctx-volume">
       <label>Vol</label>
       <input type="range" min="0" max="100" value="${Math.round((prefs.volume || 0.2) * 100)}" id="vol-slider">
     </div>
     <div class="ctx-separator"></div>
-    <div class="ctx-item" data-action="about">About</div>
     <div class="ctx-item" data-action="close">Close</div>
   `;
   document.body.appendChild(menu);
@@ -461,39 +455,10 @@ function showContextMenu(prefs) {
     const action = e.target.dataset.action;
     if (!action) return;
     switch (action) {
-      case 'scale-up':
-        await window.claude.setScale(Math.min((prefs.scale || 1) + 0.2, 3.0));
-        break;
-      case 'scale-down':
-        await window.claude.setScale(Math.max((prefs.scale || 1) - 0.2, 0.4));
-        break;
-      case 'toggle-top':
-        await window.claude.setAlwaysOnTop(!prefs.alwaysOnTop);
-        break;
-      case 'toggle-room': {
-        const newShow = prefs.showRoom === false ? true : false;
-        engine.setShowRoom(newShow);
-        await window.claude.setShowRoom(newShow);
-        break;
-      }
       case 'toggle-mute':
         await window.claude.savePrefs({ muted: !prefs.muted });
         sounds.setMuted(!prefs.muted);
         break;
-      case 'about': {
-        const about = document.createElement('div');
-        about.id = 'about-overlay';
-        about.innerHTML = `
-          <div class="about-box">
-            <pre>Claude Buddy v1.0</pre>
-            <p>Your desktop companion ♥</p>
-            <p class="about-close">click to close</p>
-          </div>
-        `;
-        about.addEventListener('click', () => about.remove());
-        document.body.appendChild(about);
-        break;
-      }
       case 'close':
         await window.claude.closeApp();
         break;

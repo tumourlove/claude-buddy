@@ -9,8 +9,13 @@
     "dist": "electron-builder",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": ["electron", "claude", "desktop-companion", "pixel-art"],
+  "author": "tumourlove",
+  "homepage": "https://github.com/tumourlove/claude-buddy",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tumourlove/claude-buddy.git"
+  },
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {

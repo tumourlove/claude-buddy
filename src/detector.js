@@ -25,6 +25,7 @@ class ClaudeDetector {
     this.onState = null;
     this.onConnected = null;
     this.onMood = null;
+    this.onToolCall = null;
     this.moodDetector = new MoodDetector();
     this.moodDetector.onMood = (mood) => {
       if (this.onMood) this.onMood(mood);
@@ -126,6 +127,7 @@ class ClaudeDetector {
 
       for (const block of content) {
         if (block.type === 'tool_use') {
+          if (this.onToolCall) this.onToolCall(block.name);
           const state = TOOL_MAP[block.name];
           if (state) {
             this._emitState(state);
