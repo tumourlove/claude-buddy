@@ -514,26 +514,14 @@ class SceneEngine {
     if (!this.isWandering) return;
 
     if (this.wanderState === 'walking' && !this.isMoving) {
-      this.wanderState = 'interacting';
-      const dir = this.charDirection === 'n' ? 'north' :
-                  this.charDirection === 's' ? 'south' :
-                  this.charDirection === 'sw' ? 'west' : 'east';
-      const animType = Math.random() > 0.5 ? 'pushing' : 'picking-up';
-      const animKey = `${animType}-${dir}`;
-
+      // Arrived at furniture — show curiosity emoji and pause
       const emoji = this.wanderEmojis[Math.floor(Math.random() * this.wanderEmojis.length)];
-
-      this.playOneShot(animKey, {
-        emoji,
-        onComplete: () => {
-          if (!this.isWandering) return;
-          this.wanderState = 'pausing';
-          const delay = 4000 + Math.random() * 4000;
-          this.wanderTimer = setTimeout(() => {
-            if (this.isWandering) this._wanderNext();
-          }, delay);
-        },
-      });
+      this._showThoughtBubble(emoji);
+      this.wanderState = 'pausing';
+      const delay = 3000 + Math.random() * 4000;
+      this.wanderTimer = setTimeout(() => {
+        if (this.isWandering) this._wanderNext();
+      }, delay);
     }
   }
 

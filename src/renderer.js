@@ -1,5 +1,4 @@
 import { SceneEngine, STATIONS, SCENE_SIZE } from './scene-engine.js';
-// SmokeEffect removed — goblin has no chimney
 import { MoodEffects } from './mood-effects.js';
 import { SoundSystem } from './sounds.js';
 
@@ -80,8 +79,6 @@ async function init() {
     eurekaN, eurekaS, eurekaW, eurekaE,
     flowN, flowS, flowW, flowE,
     victoryN, victoryS, victoryW, victoryE,
-    pushingN, pushingS, pushingW, pushingE,
-    pickingUpN, pickingUpS, pickingUpW, pickingUpE,
   ] = await Promise.all([
     tryLoadAnimFrames(engine, 'falling-back-death', 'north', 7),
     tryLoadAnimFrames(engine, 'falling-back-death', 'south', 7),
@@ -99,14 +96,6 @@ async function init() {
     tryLoadAnimFrames(engine, 'front-flip', 'south', 6),
     tryLoadAnimFrames(engine, 'front-flip', 'west', 6),
     tryLoadAnimFrames(engine, 'front-flip', 'east', 6),
-    tryLoadAnimFrames(engine, 'pushing', 'north', 6),
-    tryLoadAnimFrames(engine, 'pushing', 'south', 6),
-    tryLoadAnimFrames(engine, 'pushing', 'west', 6),
-    tryLoadAnimFrames(engine, 'pushing', 'east', 6),
-    tryLoadAnimFrames(engine, 'picking-up', 'north', 5),
-    tryLoadAnimFrames(engine, 'picking-up', 'south', 5),
-    tryLoadAnimFrames(engine, 'picking-up', 'west', 5),
-    tryLoadAnimFrames(engine, 'picking-up', 'east', 5),
   ]);
 
   // Helper to filter null entries
@@ -152,16 +141,11 @@ async function init() {
   const eurekaFrames = [eurekaN, eurekaS, eurekaW, eurekaE];
   const flowFrames = [flowN, flowS, flowW, flowE];
   const victoryFrames = [victoryN, victoryS, victoryW, victoryE];
-  const pushingFrames = [pushingN, pushingS, pushingW, pushingE];
-  const pickingUpFrames = [pickingUpN, pickingUpS, pickingUpW, pickingUpE];
-
   dirs.forEach((dir, i) => {
     if (flinchFrames[i]) engine.registerAnimations(`flinch-${dir}`, [{ frames: flinchFrames[i], fps: 10 }]);
     if (eurekaFrames[i]) engine.registerAnimations(`eureka-${dir}`, [{ frames: eurekaFrames[i], fps: 10 }]);
     if (flowFrames[i]) engine.registerAnimations(`flow-${dir}`, [{ frames: flowFrames[i], fps: 8 }]);
     if (victoryFrames[i]) engine.registerAnimations(`victory-${dir}`, [{ frames: victoryFrames[i], fps: 10 }]);
-    if (pushingFrames[i]) engine.registerAnimations(`pushing-${dir}`, [{ frames: pushingFrames[i], fps: 6 }]);
-    if (pickingUpFrames[i]) engine.registerAnimations(`picking-up-${dir}`, [{ frames: pickingUpFrames[i], fps: 6 }]);
   });
 
   // Register new states (reuse breathing-idle directions)
