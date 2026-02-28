@@ -26,8 +26,15 @@ class UpdateChecker {
       if (this.onNoUpdate) this.onNoUpdate();
     });
 
+    autoUpdater.on('download-progress', (progress) => {
+      if (this.onDownloadProgress) {
+        this.onDownloadProgress(Math.round(progress.percent));
+      }
+    });
+
     autoUpdater.on('error', (err) => {
       console.log('[claude-buddy] Auto-update error:', err.message);
+      if (this.onError) this.onError(err.message);
     });
   }
 

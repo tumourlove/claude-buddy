@@ -106,8 +106,14 @@ function createWindow() {
   updateChecker.onUpdateDownloaded = (version) => {
     if (trayManager) trayManager.setUpdateStatus('ready', version);
   };
+  updateChecker.onDownloadProgress = (percent) => {
+    if (trayManager) trayManager.setDownloadProgress(percent);
+  };
   updateChecker.onNoUpdate = () => {
     if (trayManager) trayManager.setUpdateStatus('current');
+  };
+  updateChecker.onError = () => {
+    if (trayManager) trayManager.setUpdateStatus('error');
   };
 
   // Create system tray

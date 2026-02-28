@@ -34,9 +34,10 @@ class TrayManager {
     }
 
     this.connected = false;
-    // Update states: null, 'downloading', 'ready', 'current'
+    // Update states: null, 'downloading', 'ready', 'current', 'error'
     this.updateStatus = null;
     this.updateVersion = null;
+    this.downloadPercent = 0;
     this._createTray();
 
     // Refresh menu every 30s to update stats
@@ -60,13 +61,18 @@ class TrayManager {
   _getUpdateMenuItem() {
     switch (this.updateStatus) {
       case 'downloading':
-        return { label: `Downloading v${this.updateVersion}...`, enabled: false };
+        return { label: `Downloading v${this.updateVersion}... ${this.downloadPercent}%`, enabled: false };
       case 'ready':
         return { label: `Restart to update to v${this.updateVersion}`, click: () => {
           this.installUpdate();
         }};
       case 'current':
         return { label: 'Up to date!', enabled: false };
+      case 'error':
+        return { label: 'Update failed — Check for Updates', click: () => {
+          this.updateStatus = null;
+          this.checkForUpdates();
+        }};
       default:
         return { label: 'Check for Updates', click: () => {
           this.checkForUpdates();
@@ -140,6 +146,11 @@ class TrayManager {
   setUpdateStatus(status, version) {
     this.updateStatus = status;
     if (version) this.updateVersion = version;
+    this._updateMenu();
+  }
+
+  setDownloadProgress(percent) {
+    this.downloadPercent = percent;
     this._updateMenu();
   }
 
