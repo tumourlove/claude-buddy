@@ -67,7 +67,11 @@ class TrayManager {
           this.installUpdate();
         }};
       case 'current':
-        return { label: 'Up to date!', enabled: false };
+        return { label: 'Up to date! — Check again', click: () => {
+          this.updateStatus = null;
+          this._updateMenu();
+          this.checkForUpdates();
+        }};
       case 'error':
         return { label: 'Update failed — Check for Updates', click: () => {
           this.updateStatus = null;
