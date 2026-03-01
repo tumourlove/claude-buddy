@@ -116,13 +116,13 @@ class SceneEngine {
     this.inFlow = false;
 
     // LED ticker tape
-    this.tickerMessage = '';
+    this.tickerMessage = 'BOOTING UP...';
     this.tickerScrollX = 0;
     this.tickerQueue = [];
     this.tickerUsed = new Map();
     this.tickerSpeed = 35;          // pixels per second
-    this.tickerWidth = 0;           // calculated text width (set during render)
-    this.tickerPanelWidth = 160;    // will be recalculated during render
+    this.tickerWidth = 0;           // measured in transformed coords during render
+    this.tickerPanelWidth = 160;    // recalculated in transformed coords during render
 
     // Callbacks
     this.onRenderEffects = null;
@@ -130,9 +130,6 @@ class SceneEngine {
 
     // Initial canvas setup
     this._applyScale();
-
-    this.tickerMessage = 'BOOTING UP...';
-    this.tickerScrollX = 0;
   }
 
   // ── Image loading ──────────────────────────────────────────────────
@@ -1096,7 +1093,7 @@ class SceneEngine {
     const panelBR = { x: top.x + h1 * wallDx, y: (top.y - wallH) + h1 * wallDy + (vCenter + vHalf) * wallH };
     const panelBL = { x: top.x + h0 * wallDx, y: (top.y - wallH) + h0 * wallDy + (vCenter + vHalf) * wallH };
 
-    // Draw dark panel background
+    // Clip to panel bounds, then draw contents inside
     ctx.save();
     ctx.beginPath();
     ctx.moveTo(panelTL.x, panelTL.y);
@@ -1104,29 +1101,22 @@ class SceneEngine {
     ctx.lineTo(panelBR.x, panelBR.y);
     ctx.lineTo(panelBL.x, panelBL.y);
     ctx.closePath();
+    ctx.clip();
 
+    // Dark panel background
     ctx.fillStyle = '#0a0a14';
     ctx.fill();
     ctx.strokeStyle = '#2a2a3a';
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    // Subtle top bevel
+    // Subtle top bevel highlight
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
     ctx.lineWidth = 0.5;
     ctx.beginPath();
     ctx.moveTo(panelTL.x, panelTL.y);
     ctx.lineTo(panelTR.x, panelTR.y);
     ctx.stroke();
-
-    // Clip to panel
-    ctx.beginPath();
-    ctx.moveTo(panelTL.x, panelTL.y);
-    ctx.lineTo(panelTR.x, panelTR.y);
-    ctx.lineTo(panelBR.x, panelBR.y);
-    ctx.lineTo(panelBL.x, panelBL.y);
-    ctx.closePath();
-    ctx.clip();
 
     // Isometric transform: text x-axis follows wall direction
     const ux = wallDx / wallLen;
