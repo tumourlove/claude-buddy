@@ -96,6 +96,11 @@ function createWindow() {
       mainWindow.webContents.send('claude-eureka');
     }
   };
+  detector.onTasks = (tasks) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('claude-tasks', tasks);
+    }
+  };
   detector.start();
 
   // Auto-updater

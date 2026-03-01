@@ -37,4 +37,8 @@ contextBridge.exposeInMainWorld('claude', {
     ipcRenderer.removeAllListeners('claude-eureka');
     ipcRenderer.on('claude-eureka', () => callback());
   },
+  onTasksChange: (callback) => {
+    ipcRenderer.removeAllListeners('claude-tasks');
+    ipcRenderer.on('claude-tasks', (_, tasks) => callback(tasks));
+  },
 });
