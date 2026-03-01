@@ -45,6 +45,10 @@ class ClaudeDetector {
     this.stateHistory = [];
     this.onEureka = null;
 
+    // Task list tracking
+    this.tasks = new Map();
+    this.onTasks = null;
+
     this.idleTimeout = 10000; // 10s no activity = idle
     this.connectedTimeout = 30000; // 30s no activity = disconnected
     this.idleTimer = null;
@@ -78,6 +82,9 @@ class ClaudeDetector {
     this.watcher.on('add', (filePath) => {
       if (!filePath.endsWith('.jsonl')) return;
       console.log(`[claude-buddy] Tracking: ${filePath}`);
+      // New file = new session, reset tasks
+      this.tasks.clear();
+      this._emitTasks();
       try {
         const stat = fs.statSync(filePath);
         this.filePositions.set(filePath, stat.size);
@@ -128,6 +135,25 @@ class ClaudeDetector {
       for (const block of content) {
         if (block.type === 'tool_use') {
           if (this.onToolCall) this.onToolCall(block.name);
+          if (block.name === 'TaskCreate' && block.input) {
+            const id = String(this.tasks.size + 1);
+            this.tasks.set(id, {
+              id,
+              subject: block.input.subject || 'Untitled',
+              status: 'pending',
+            });
+            this._emitTasks();
+          }
+          if (block.name === 'TaskUpdate' && block.input) {
+            const id = String(block.input.taskId);
+            const task = this.tasks.get(id);
+            if (task) {
+              if (block.input.status) task.status = block.input.status;
+              if (block.input.subject) task.subject = block.input.subject;
+              if (block.input.status === 'deleted') this.tasks.delete(id);
+              this._emitTasks();
+            }
+          }
           const state = TOOL_MAP[block.name];
           if (state) {
             this._emitState(state);
@@ -148,6 +174,12 @@ class ClaudeDetector {
         }
       }
     } catch {}
+  }
+
+  _emitTasks() {
+    if (this.onTasks) {
+      this.onTasks([...this.tasks.values()]);
+    }
   }
 
   _emitState(state) {
