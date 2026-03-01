@@ -115,12 +115,24 @@ class SceneEngine {
     // Flow state
     this.inFlow = false;
 
+    // LED ticker tape
+    this.tickerMessage = '';
+    this.tickerScrollX = 0;
+    this.tickerQueue = [];
+    this.tickerUsed = new Map();
+    this.tickerSpeed = 35;          // pixels per second
+    this.tickerWidth = 0;           // calculated text width (set during render)
+    this.tickerPanelWidth = 160;    // will be recalculated during render
+
     // Callbacks
     this.onRenderEffects = null;
     this.onStateChange = null;
 
     // Initial canvas setup
     this._applyScale();
+
+    this.tickerMessage = 'BOOTING UP...';
+    this.tickerScrollX = 0;
   }
 
   // ── Image loading ──────────────────────────────────────────────────
@@ -317,6 +329,18 @@ class SceneEngine {
     curious:     '🔎',
   };
 
+  static TICKER_MESSAGES = {
+    coding:      ['HACKING THE MAINFRAME', 'TYPING FURIOUSLY', 'DEPLOYING BUTTERFLIES', 'MOVING PIXELS AROUND', 'COPY PASTE ENGINEERING', 'ARTISANAL CODE CRAFTING'],
+    researching: ['PONTIFICATING', 'CONSULTING THE ORACLE', 'READING ANCIENT SCROLLS', 'GOOGLING INTENSELY', 'ABSORBING KNOWLEDGE', 'SPEED READING'],
+    bash:        ['SUMMONING DEMONS', 'RUNNING WITH SCISSORS', 'POKING THE BEAR', 'sudo MAKE ME A SANDWICH', 'EXECUTING ORDER 66', 'PERMISSION DENIED LOL'],
+    thinking:    ['LOADING THOUGHTS...', 'BRAIN.EXE RUNNING', 'CONTEMPLATING EXISTENCE', 'BUFFERING...', 'COGITATING VIGOROUSLY', 'PROCESSING...'],
+    listening:   ['AWAITING ORDERS', 'ALL EARS', 'YES BOSS?', 'STANDING BY', 'READY FOR INPUT', 'AT YOUR SERVICE'],
+    idle:        ['ZZZ', 'POWER SAVING MODE', 'SCREEN SAVER ACTIVE', 'ON BREAK', 'DO NOT DISTURB', 'AFK'],
+    browsing:    ['SURFING THE WEB', 'DOOM SCROLLING', 'DOWNLOADING MORE RAM', 'CLICKING LINKS', 'INCOGNITO MODE'],
+    building:    ['CONSTRUCTING PYLONS', 'LAYING BRICKS', 'ASSEMBLING IKEA CODE', 'BUILDING CHARACTER', 'SOME ASSEMBLY REQUIRED'],
+    delegating:  ['PASSING THE BUCK', 'DELEGATING RESPONSIBILITY', 'OUTSOURCING', 'MIDDLE MANAGEMENT', 'HERDING CATS'],
+  };
+
   _showThoughtBubble(state) {
     const emoji = SceneEngine.THOUGHT_EMOJIS[state];
     if (!emoji) return;
@@ -432,6 +456,12 @@ class SceneEngine {
     // Show thought bubble for the new state
     this._showThoughtBubble(state);
 
+    // Queue ticker message for new state
+    this.tickerQueue.push(this._pickTickerMessage(state));
+    if (this.tickerQueue.length > 3) {
+      this.tickerQueue = this.tickerQueue.slice(-2);
+    }
+
     // Set tween target from furniture position, clamped to diamond
     const station = this._getStationPos(state);
     const clamped = this._clampToDiamond(station.x, station.y);
@@ -475,6 +505,22 @@ class SceneEngine {
 
   setFlow(flowing) {
     this.inFlow = flowing;
+  }
+
+  _pickTickerMessage(state) {
+    const pool = SceneEngine.TICKER_MESSAGES[state];
+    if (!pool || pool.length === 0) return 'BUSY...';
+
+    let used = this.tickerUsed.get(state);
+    if (!used || used.size >= pool.length) {
+      used = new Set();
+      this.tickerUsed.set(state, used);
+    }
+
+    const available = pool.filter(m => !used.has(m));
+    const msg = available[Math.floor(Math.random() * available.length)];
+    used.add(msg);
+    return msg;
   }
 
   // ── Idle wandering ──────────────────────────────────────────────────
@@ -574,6 +620,7 @@ class SceneEngine {
     this._updateTween();
     this._updateWander();
     this._updateAnimation(dt);
+    this._updateTicker(dt);
     this._updateThoughtBubble();
     this._render();
 
@@ -682,6 +729,20 @@ class SceneEngine {
           }
         }
       }
+    }
+  }
+
+  _updateTicker(dt) {
+    if (!this.tickerMessage) return;
+
+    this.tickerScrollX += this.tickerSpeed * (dt / 1000);
+
+    // When current message has fully scrolled off, load next
+    if (this.tickerScrollX > this.tickerWidth + this.tickerPanelWidth) {
+      if (this.tickerQueue.length > 0) {
+        this.tickerMessage = this.tickerQueue.shift();
+      }
+      this.tickerScrollX = 0;
     }
   }
 
@@ -895,6 +956,9 @@ class SceneEngine {
       ctx.stroke();
     }
 
+    // ── LED ticker tape on right wall ──
+    this._drawTicker();
+
     // Trim along wall top edges
     ctx.strokeStyle = '#6b5b3e';
     ctx.lineWidth = 2;
@@ -1006,6 +1070,94 @@ class SceneEngine {
       ctx.lineTo(x4, y4);
       ctx.stroke();
     }
+  }
+
+  _drawTicker() {
+    const ctx = this.ctx;
+    const { cx, cy, halfW, halfH, wallH } = ROOM;
+
+    const top   = { x: cx, y: cy - halfH };
+    const right = { x: cx + halfW, y: cy };
+
+    // Wall axis direction
+    const wallDx = right.x - top.x;  // 200
+    const wallDy = right.y - top.y;  // 100
+    const wallLen = Math.sqrt(wallDx * wallDx + wallDy * wallDy);
+
+    // Ticker position on wall: h=horizontal (0-1), v=vertical from top (0-1)
+    const h0 = 0.08, h1 = 0.92;
+    const vCenter = 0.38;
+    const vHalf = 0.05;  // half-height of strip as fraction of wall
+
+    // Four corners of ticker strip parallelogram
+    // Point at (h, v): x = top.x + h*wallDx, y = (top.y - wallH) + h*wallDy + v*wallH
+    const panelTL = { x: top.x + h0 * wallDx, y: (top.y - wallH) + h0 * wallDy + (vCenter - vHalf) * wallH };
+    const panelTR = { x: top.x + h1 * wallDx, y: (top.y - wallH) + h1 * wallDy + (vCenter - vHalf) * wallH };
+    const panelBR = { x: top.x + h1 * wallDx, y: (top.y - wallH) + h1 * wallDy + (vCenter + vHalf) * wallH };
+    const panelBL = { x: top.x + h0 * wallDx, y: (top.y - wallH) + h0 * wallDy + (vCenter + vHalf) * wallH };
+
+    // Draw dark panel background
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(panelTL.x, panelTL.y);
+    ctx.lineTo(panelTR.x, panelTR.y);
+    ctx.lineTo(panelBR.x, panelBR.y);
+    ctx.lineTo(panelBL.x, panelBL.y);
+    ctx.closePath();
+
+    ctx.fillStyle = '#0a0a14';
+    ctx.fill();
+    ctx.strokeStyle = '#2a2a3a';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Subtle top bevel
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(panelTL.x, panelTL.y);
+    ctx.lineTo(panelTR.x, panelTR.y);
+    ctx.stroke();
+
+    // Clip to panel
+    ctx.beginPath();
+    ctx.moveTo(panelTL.x, panelTL.y);
+    ctx.lineTo(panelTR.x, panelTR.y);
+    ctx.lineTo(panelBR.x, panelBR.y);
+    ctx.lineTo(panelBL.x, panelBL.y);
+    ctx.closePath();
+    ctx.clip();
+
+    // Isometric transform: text x-axis follows wall direction
+    const ux = wallDx / wallLen;
+    const uy = wallDy / wallLen;
+
+    // Origin: left edge of panel, vertically centered
+    const originX = panelTL.x;
+    const originY = (panelTL.y + panelBL.y) / 2;
+
+    ctx.setTransform(ux, uy, 0, 1, originX, originY);
+
+    // LED text style
+    ctx.font = 'bold 9px monospace';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#ff8c00';
+
+    // Glow
+    ctx.shadowColor = '#ff6600';
+    ctx.shadowBlur = 4;
+
+    // Measure and store for scroll logic
+    const textWidth = ctx.measureText(this.tickerMessage).width;
+    this.tickerWidth = textWidth;
+    const panelW = (h1 - h0) * wallLen;
+    this.tickerPanelWidth = panelW;
+
+    // Text enters from right, scrolls left
+    const textX = panelW - this.tickerScrollX;
+    ctx.fillText(this.tickerMessage, textX, 0);
+
+    ctx.restore();
   }
 
   _drawFurniture(f) {
