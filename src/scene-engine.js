@@ -50,6 +50,31 @@ const TICKER_PANEL = Object.freeze({
   originY: (_tlY + _blY) / 2,
 });
 
+// Left wall direction vectors (top → left vertex)
+const ROOM_LEFT = { x: ROOM.cx - ROOM.halfW, y: ROOM.cy };
+const LWALL_DX = ROOM_LEFT.x - ROOM_TOP.x;   // -200
+const LWALL_DY = ROOM_LEFT.y - ROOM_TOP.y;    // 100
+const LWALL_LEN = Math.sqrt(LWALL_DX * LWALL_DX + LWALL_DY * LWALL_DY);
+
+// Chalkboard panel geometry (parallelogram on left wall, left of window)
+// Window occupies 30%-65% of wall; chalkboard at 5%-27%
+const CHALK_H0 = 0.05, CHALK_H1 = 0.27;
+const CHALK_V_TOP = 0.70, CHALK_V_BOT = 0.25;
+const _cTlY = (ROOM_TOP.y + LWALL_DY * CHALK_H0) - ROOM.wallH * CHALK_V_TOP;
+const _cBlY = (ROOM_TOP.y + LWALL_DY * CHALK_H0) - ROOM.wallH * CHALK_V_BOT;
+const _cTrY = (ROOM_TOP.y + LWALL_DY * CHALK_H1) - ROOM.wallH * CHALK_V_TOP;
+const _cBrY = (ROOM_TOP.y + LWALL_DY * CHALK_H1) - ROOM.wallH * CHALK_V_BOT;
+const CHALK_PANEL = Object.freeze({
+  TL: { x: ROOM_TOP.x + LWALL_DX * CHALK_H0, y: _cTlY },
+  TR: { x: ROOM_TOP.x + LWALL_DX * CHALK_H1, y: _cTrY },
+  BR: { x: ROOM_TOP.x + LWALL_DX * CHALK_H1, y: _cBrY },
+  BL: { x: ROOM_TOP.x + LWALL_DX * CHALK_H0, y: _cBlY },
+  width: (CHALK_H1 - CHALK_H0) * LWALL_LEN,
+  height: (CHALK_V_TOP - CHALK_V_BOT) * ROOM.wallH,
+  ux: LWALL_DX / LWALL_LEN,
+  uy: LWALL_DY / LWALL_LEN,
+});
+
 // Station-to-furniture mapping and default direction
 // The character will stand next to the linked furniture piece.
 // Offsets position the character relative to furniture center (32,32).
@@ -146,6 +171,9 @@ class SceneEngine {
     this.tickerSpeed = 52;          // pixels per second
     this.tickerWidth = 0;           // measured on message change
     this.tickerPanelWidth = TICKER_PANEL.width;
+
+    // Chalkboard task list
+    this.tasks = [];
 
     // Callbacks
     this.onRenderEffects = null;
@@ -535,6 +563,10 @@ class SceneEngine {
 
   getMood() {
     return this.currentMood;
+  }
+
+  setTasks(tasks) {
+    this.tasks = tasks || [];
   }
 
   playOneShot(animKey, { emoji = null, onComplete = null } = {}) {
@@ -1015,6 +1047,9 @@ class SceneEngine {
     ctx.closePath();
     ctx.fill();
 
+    // ── Chalkboard on left wall ──
+    this._drawChalkboard();
+
     // ── Right wall (back-right edge going up) ──
     ctx.beginPath();
     ctx.moveTo(top.x, top.y);
@@ -1207,6 +1242,91 @@ class SceneEngine {
     // Text enters from right, scrolls left (tickerWidth measured on message change)
     const textX = panelW - this.tickerScrollX;
     ctx.fillText(this.tickerMessage, textX, 0);
+
+    ctx.restore();
+  }
+
+  _drawChalkboard() {
+    if (!this.tasks.length) return;
+
+    const ctx = this.ctx;
+    const { TL, TR, BR, BL, width: panelW, height: panelH, ux, uy } = CHALK_PANEL;
+
+    ctx.save();
+
+    // Green chalkboard background
+    ctx.beginPath();
+    ctx.moveTo(TL.x, TL.y); ctx.lineTo(TR.x, TR.y);
+    ctx.lineTo(BR.x, BR.y); ctx.lineTo(BL.x, BL.y);
+    ctx.closePath();
+    ctx.fillStyle = '#2a4a2a';
+    ctx.fill();
+
+    // Wooden frame
+    ctx.strokeStyle = '#8b6914';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Clip to panel
+    ctx.beginPath();
+    ctx.moveTo(TL.x, TL.y); ctx.lineTo(TR.x, TR.y);
+    ctx.lineTo(BR.x, BR.y); ctx.lineTo(BL.x, BL.y);
+    ctx.closePath();
+    ctx.clip();
+
+    // Isometric transform: text follows left wall direction
+    ctx.translate(TL.x, TL.y);
+    ctx.transform(ux, uy, 0, 1, 0, 0);
+
+    // Chalk text style
+    const fontSize = 7;
+    ctx.font = `${fontSize}px monospace`;
+    ctx.textBaseline = 'top';
+
+    // Sort: pending/in_progress first, then completed
+    const sorted = [...this.tasks].sort((a, b) => {
+      const aComplete = a.status === 'completed' ? 1 : 0;
+      const bComplete = b.status === 'completed' ? 1 : 0;
+      return aComplete - bComplete;
+    });
+
+    const lineHeight = fontSize + 3;
+    const maxLines = Math.floor(panelH / lineHeight);
+    const padding = 4;
+    const maxTextW = panelW - padding * 2;
+
+    for (let i = 0; i < Math.min(sorted.length, maxLines); i++) {
+      const task = sorted[i];
+      const done = task.status === 'completed';
+      const y = padding + i * lineHeight;
+
+      // Checkbox
+      const checkbox = done ? '\u2611 ' : '\u2610 ';
+      // Truncate subject to fit
+      let subject = task.subject;
+      ctx.fillStyle = done ? 'rgba(255, 255, 255, 0.45)' : 'rgba(255, 255, 255, 0.85)';
+      const fullText = checkbox + subject;
+      // Measure and truncate
+      let displayText = fullText;
+      while (ctx.measureText(displayText).width > maxTextW && displayText.length > 5) {
+        subject = subject.slice(0, -1);
+        displayText = checkbox + subject + '\u2026';
+      }
+
+      ctx.fillText(displayText, padding, y);
+
+      // Strikethrough for completed tasks
+      if (done) {
+        const textWidth = ctx.measureText(displayText).width;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        const strikeY = y + fontSize / 2;
+        ctx.moveTo(padding, strikeY);
+        ctx.lineTo(padding + textWidth, strikeY);
+        ctx.stroke();
+      }
+    }
 
     ctx.restore();
   }
