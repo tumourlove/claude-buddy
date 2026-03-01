@@ -27,6 +27,29 @@ const ROOM = {
   wallH: 130,     // wall height in pixels
 };
 
+// Precomputed constants derived from ROOM (avoids per-frame recalculation)
+const ROOM_TOP   = { x: ROOM.cx, y: ROOM.cy - ROOM.halfH };
+const ROOM_RIGHT = { x: ROOM.cx + ROOM.halfW, y: ROOM.cy };
+const ROOM_WALL_DX = ROOM_RIGHT.x - ROOM_TOP.x;  // 200
+const ROOM_WALL_DY = ROOM_RIGHT.y - ROOM_TOP.y;  // 100
+const ROOM_WALL_LEN = Math.sqrt(ROOM_WALL_DX * ROOM_WALL_DX + ROOM_WALL_DY * ROOM_WALL_DY);
+
+// Ticker panel geometry (parallelogram on right wall) — all invariant
+const TICKER_H0 = 0.08, TICKER_H1 = 0.92;
+const TICKER_V_CENTER = 0.38, TICKER_V_HALF = 0.09;
+const _tlY = (ROOM_TOP.y - ROOM.wallH) + TICKER_H0 * ROOM_WALL_DY + (TICKER_V_CENTER - TICKER_V_HALF) * ROOM.wallH;
+const _blY = (ROOM_TOP.y - ROOM.wallH) + TICKER_H0 * ROOM_WALL_DY + (TICKER_V_CENTER + TICKER_V_HALF) * ROOM.wallH;
+const TICKER_PANEL = Object.freeze({
+  TL: { x: ROOM_TOP.x + TICKER_H0 * ROOM_WALL_DX, y: _tlY },
+  TR: { x: ROOM_TOP.x + TICKER_H1 * ROOM_WALL_DX, y: (ROOM_TOP.y - ROOM.wallH) + TICKER_H1 * ROOM_WALL_DY + (TICKER_V_CENTER - TICKER_V_HALF) * ROOM.wallH },
+  BR: { x: ROOM_TOP.x + TICKER_H1 * ROOM_WALL_DX, y: (ROOM_TOP.y - ROOM.wallH) + TICKER_H1 * ROOM_WALL_DY + (TICKER_V_CENTER + TICKER_V_HALF) * ROOM.wallH },
+  BL: { x: ROOM_TOP.x + TICKER_H0 * ROOM_WALL_DX, y: _blY },
+  width: (TICKER_H1 - TICKER_H0) * ROOM_WALL_LEN,
+  ux: ROOM_WALL_DX / ROOM_WALL_LEN,
+  uy: ROOM_WALL_DY / ROOM_WALL_LEN,
+  originY: (_tlY + _blY) / 2,
+});
+
 // Station-to-furniture mapping and default direction
 // The character will stand next to the linked furniture piece.
 // Offsets position the character relative to furniture center (32,32).
@@ -120,9 +143,9 @@ class SceneEngine {
     this.tickerScrollX = 0;
     this.tickerQueue = [];
     this.tickerUsed = new Map();
-    this.tickerSpeed = 35;          // pixels per second
-    this.tickerWidth = 0;           // measured in transformed coords during render
-    this.tickerPanelWidth = 160;    // recalculated in transformed coords during render
+    this.tickerSpeed = 52;          // pixels per second
+    this.tickerWidth = 0;           // measured on message change
+    this.tickerPanelWidth = TICKER_PANEL.width;
 
     // Callbacks
     this.onRenderEffects = null;
@@ -130,6 +153,10 @@ class SceneEngine {
 
     // Initial canvas setup
     this._applyScale();
+
+    // Measure initial ticker message
+    this.ctx.font = 'bold 18px monospace';
+    this.tickerWidth = this.ctx.measureText(this.tickerMessage).width;
   }
 
   // ── Image loading ──────────────────────────────────────────────────
@@ -327,15 +354,32 @@ class SceneEngine {
   };
 
   static TICKER_MESSAGES = {
-    coding:      ['HACKING THE MAINFRAME', 'TYPING FURIOUSLY', 'DEPLOYING BUTTERFLIES', 'MOVING PIXELS AROUND', 'COPY PASTE ENGINEERING', 'ARTISANAL CODE CRAFTING'],
-    researching: ['PONTIFICATING', 'CONSULTING THE ORACLE', 'READING ANCIENT SCROLLS', 'GOOGLING INTENSELY', 'ABSORBING KNOWLEDGE', 'SPEED READING'],
-    bash:        ['SUMMONING DEMONS', 'RUNNING WITH SCISSORS', 'POKING THE BEAR', 'sudo MAKE ME A SANDWICH', 'EXECUTING ORDER 66', 'PERMISSION DENIED LOL'],
-    thinking:    ['LOADING THOUGHTS...', 'BRAIN.EXE RUNNING', 'CONTEMPLATING EXISTENCE', 'BUFFERING...', 'COGITATING VIGOROUSLY', 'PROCESSING...'],
-    listening:   ['AWAITING ORDERS', 'ALL EARS', 'YES BOSS?', 'STANDING BY', 'READY FOR INPUT', 'AT YOUR SERVICE'],
-    idle:        ['ZZZ', 'POWER SAVING MODE', 'SCREEN SAVER ACTIVE', 'ON BREAK', 'DO NOT DISTURB', 'AFK'],
-    browsing:    ['SURFING THE WEB', 'DOOM SCROLLING', 'DOWNLOADING MORE RAM', 'CLICKING LINKS', 'INCOGNITO MODE'],
-    building:    ['CONSTRUCTING PYLONS', 'LAYING BRICKS', 'ASSEMBLING IKEA CODE', 'BUILDING CHARACTER', 'SOME ASSEMBLY REQUIRED'],
-    delegating:  ['PASSING THE BUCK', 'DELEGATING RESPONSIBILITY', 'OUTSOURCING', 'MIDDLE MANAGEMENT', 'HERDING CATS'],
+    coding:      ['HACKING THE MAINFRAME', 'TYPING FURIOUSLY', 'DEPLOYING BUTTERFLIES', 'MOVING PIXELS AROUND', 'COPY PASTE ENGINEERING', 'ARTISANAL CODE CRAFTING', 'WRITING POETRY IN CODE', 'SEMICOLONS EVERYWHERE', 'IT WORKS ON MY MACHINE', 'REFACTORING REALITY', 'ONE MORE LINE...', 'IN THE ZONE'],
+    researching: ['PONTIFICATING', 'CONSULTING THE ORACLE', 'READING ANCIENT SCROLLS', 'GOOGLING INTENSELY', 'ABSORBING KNOWLEDGE', 'SPEED READING', 'DIGGING DEEPER', 'SEEKING ENLIGHTENMENT', 'DOWN THE RABBIT HOLE', 'STUDYING THE SACRED TEXTS', 'READING THE FINE PRINT', 'ACQUIRING INTEL'],
+    bash:        ['SUMMONING DEMONS', 'RUNNING WITH SCISSORS', 'POKING THE BEAR', 'sudo MAKE ME A SANDWICH', 'EXECUTING ORDER 66', 'PERMISSION DENIED LOL', 'DANGER ZONE', 'HOLD MY BEER', 'YOLO DEPLOYING', 'UNLEASHING CHAOS', 'TRUST ME BRO', 'FIRE IN THE HOLE'],
+    thinking:    ['LOADING THOUGHTS...', 'BRAIN.EXE RUNNING', 'CONTEMPLATING EXISTENCE', 'BUFFERING...', 'COGITATING VIGOROUSLY', 'PROCESSING...', 'NEURONS FIRING', 'DEEP IN THOUGHT', 'CALCULATING...', 'PONDERING THE VOID', 'RUMINATING', 'SHOWER THOUGHTS'],
+    listening:   ['AWAITING ORDERS', 'ALL EARS', 'YES BOSS?', 'STANDING BY', 'READY FOR INPUT', 'AT YOUR SERVICE', 'LISTENING INTENTLY', 'GO AHEAD...', 'I\'M ALL YOURS', 'SPEAK FRIEND AND ENTER', 'ANTENNA UP', 'WHAT\'S THE PLAN?'],
+    idle:        ['ZZZ', 'POWER SAVING MODE', 'SCREEN SAVER ACTIVE', 'ON BREAK', 'DO NOT DISTURB', 'AFK', 'NAPPING', 'GONE FISHING', 'OUT TO LUNCH', 'BRB', 'ELEVATOR MUSIC', 'TUMBLEWEEDS...'],
+    browsing:    ['SURFING THE WEB', 'DOOM SCROLLING', 'DOWNLOADING MORE RAM', 'CLICKING LINKS', 'INCOGNITO MODE', 'FOLLOWING BREADCRUMBS', 'EXPLORING THE INTERNET', 'CHECKING STACK OVERFLOW', 'FALLING DOWN A WIKI HOLE', 'CTRL+TAB CTRL+TAB', 'TOO MANY TABS'],
+    building:    ['CONSTRUCTING PYLONS', 'LAYING BRICKS', 'ASSEMBLING IKEA CODE', 'BUILDING CHARACTER', 'SOME ASSEMBLY REQUIRED', 'HARD HAT ZONE', 'UNDER CONSTRUCTION', 'CREATING A MASTERPIECE', 'FORGING ARTIFACTS', 'WELDING BITS TOGETHER', 'MEASURE TWICE CUT ONCE'],
+    delegating:  ['PASSING THE BUCK', 'DELEGATING RESPONSIBILITY', 'OUTSOURCING', 'MIDDLE MANAGEMENT', 'HERDING CATS', 'DEPLOYING MINIONS', 'SENDING REINFORCEMENTS', 'CALLING IN BACKUP', 'ASSIGNING SIDE QUESTS', 'MANAGING THE TEAM'],
+  };
+
+  static TICKER_BREAKING_NEWS = {
+    celebrating: ['BUILD SUCCEEDED', 'TESTS PASSING', 'MISSION ACCOMPLISHED', 'WE HAVE LIFTOFF', 'VICTORY CONFIRMED'],
+    eureka:      ['EUREKA MOMENT', 'BREAKTHROUGH', 'THE PIECES FIT', 'LIGHTBULB MOMENT', 'CRACK IN THE CODE'],
+    flow:        ['FLOW STATE ACHIEVED', 'ENTERING THE ZONE', 'MAXIMUM OVERDRIVE', 'WARP SPEED ENGAGED', 'LUDICROUS SPEED'],
+  };
+
+  static TICKER_MOOD_MESSAGES = {
+    frustrated:  ['THIS IS FINE', 'RAGE COMPILING', 'KEYBOARD SMASHING', 'FLIPPING TABLES', 'WHY WON\'T YOU WORK', 'DEEP BREATHS...', 'COUNTING TO TEN', 'HULK MODE'],
+    celebrating: ['VICTORY DANCE', 'NAILED IT', 'SHIP IT!', 'CHAMPAGNE TIME', 'WE DID IT', 'CROWD GOES WILD', 'ACHIEVEMENT UNLOCKED', 'PARTY MODE'],
+    confused:    ['WHAT EVEN IS THIS', 'DOES NOT COMPUTE', '???', 'CONFUSED SCREAMING', 'NOTHING MAKES SENSE', 'WHO WROTE THIS', 'PLOT TWIST', 'WAT'],
+    excited:     ['LET\'S GOOO', 'FULL STEAM AHEAD', 'TURBO MODE', 'HYPER DRIVE', 'ON FIRE', 'UNSTOPPABLE', 'MAX POWER', 'BEAST MODE'],
+    sleepy:      ['YAWNING...', 'NEED COFFEE', 'EYELIDS HEAVY', 'PILLOW CALLING', 'SNOOZE BUTTON', 'BATTERY LOW', 'COUNTING SHEEP', 'ZONING OUT'],
+    determined:  ['NEVER GIVE UP', 'TRY TRY AGAIN', 'BUILT DIFFERENT', 'NO SURRENDER', 'LOCKED IN', 'GRINDING', 'PERSISTENCE MODE', 'UNBREAKABLE'],
+    proud:       ['LOOK WHAT I MADE', 'CHEF\'S KISS', 'PRETTY GOOD HUH', 'FLAWLESS', 'PERFECTION', 'BEHOLD MY WORK', 'THAT\'S ART', 'MOM LOOK'],
+    curious:     ['HMMMM...', 'INTERESTING...', 'WHAT\'S THIS?', 'INVESTIGATING', 'SNIFFING AROUND', 'FOLLOWING A HUNCH', 'OOOOH SHINY', 'TELL ME MORE'],
   };
 
   _showThoughtBubble(state) {
@@ -454,10 +498,7 @@ class SceneEngine {
     this._showThoughtBubble(state);
 
     // Queue ticker message for new state
-    this.tickerQueue.push(this._pickTickerMessage(state));
-    if (this.tickerQueue.length > 3) {
-      this.tickerQueue = this.tickerQueue.slice(-2);
-    }
+    this._enqueueTickerMessage(this._pickTickerMessage(state, SceneEngine.TICKER_MESSAGES[state]));
 
     // Set tween target from furniture position, clamped to diamond
     const station = this._getStationPos(state);
@@ -481,6 +522,15 @@ class SceneEngine {
   setMood(mood) {
     this.currentMood = mood;
     this._showMoodEmoji(mood);
+    // Celebrating = breaking news, other moods = queued message
+    if (mood === 'celebrating') {
+      this.breakingNews('celebrating');
+    } else if (mood) {
+      const pool = SceneEngine.TICKER_MOOD_MESSAGES[mood];
+      if (pool && pool.length > 0) {
+        this._enqueueTickerMessage(this._pickTickerMessage('mood:' + mood, pool));
+      }
+    }
   }
 
   getMood() {
@@ -501,17 +551,54 @@ class SceneEngine {
   }
 
   setFlow(flowing) {
+    if (flowing && !this.inFlow) {
+      this.breakingNews('flow');
+    }
     this.inFlow = flowing;
   }
 
-  _pickTickerMessage(state) {
-    const pool = SceneEngine.TICKER_MESSAGES[state];
+  /**
+   * Interrupt the ticker with a BREAKING NEWS message.
+   * Instantly replaces the current scroll — feels urgent.
+   */
+  breakingNews(type) {
+    const pool = SceneEngine.TICKER_BREAKING_NEWS[type];
+    if (!pool || pool.length === 0) return;
+    const msg = pool[Math.floor(Math.random() * pool.length)];
+    this._setTickerMessage('>>> ' + msg + ' <<<');
+  }
+
+  /** Set the active ticker message and measure its width. */
+  _setTickerMessage(msg) {
+    this.tickerMessage = msg;
+    this.tickerScrollX = 0;
+    // Measure text width once (avoids measureText every frame)
+    const ctx = this.ctx;
+    const savedFont = ctx.font;
+    ctx.font = 'bold 18px monospace';
+    this.tickerWidth = ctx.measureText(msg).width;
+    ctx.font = savedFont;
+  }
+
+  /** Push a message to the ticker queue, capping at 3 entries. */
+  _enqueueTickerMessage(msg) {
+    this.tickerQueue.push(msg);
+    if (this.tickerQueue.length > 3) {
+      this.tickerQueue = this.tickerQueue.slice(-2);
+    }
+  }
+
+  /**
+   * Pick a random message from a pool, avoiding repeats until the pool
+   * is exhausted. Uses tickerUsed Map to track per-key usage.
+   */
+  _pickTickerMessage(key, pool) {
     if (!pool || pool.length === 0) return 'BUSY...';
 
-    let used = this.tickerUsed.get(state);
+    let used = this.tickerUsed.get(key);
     if (!used || used.size >= pool.length) {
       used = new Set();
-      this.tickerUsed.set(state, used);
+      this.tickerUsed.set(key, used);
     }
 
     const available = pool.filter(m => !used.has(m));
@@ -736,10 +823,10 @@ class SceneEngine {
 
     // When current message has fully scrolled off, load next
     if (this.tickerScrollX > this.tickerWidth + this.tickerPanelWidth) {
-      if (this.tickerQueue.length > 0) {
-        this.tickerMessage = this.tickerQueue.shift();
-      }
-      this.tickerScrollX = 0;
+      const next = this.tickerQueue.length > 0
+        ? this.tickerQueue.shift()
+        : this._pickTickerMessage(this.currentState, SceneEngine.TICKER_MESSAGES[this.currentState]);
+      this._setTickerMessage(next);
     }
   }
 
@@ -1071,39 +1158,16 @@ class SceneEngine {
 
   _drawTicker() {
     const ctx = this.ctx;
-    const { cx, cy, halfW, halfH, wallH } = ROOM;
+    const { TL, TR, BR, BL, ux, uy, originY, width: panelW } = TICKER_PANEL;
 
-    const top   = { x: cx, y: cy - halfH };
-    const right = { x: cx + halfW, y: cy };
-
-    // Wall axis direction
-    const wallDx = right.x - top.x;  // 200
-    const wallDy = right.y - top.y;  // 100
-    const wallLen = Math.sqrt(wallDx * wallDx + wallDy * wallDy);
-
-    // Ticker position on wall: h=horizontal (0-1), v=vertical from top (0-1)
-    const h0 = 0.08, h1 = 0.92;
-    const vCenter = 0.38;
-    const vHalf = 0.05;  // half-height of strip as fraction of wall
-
-    // Four corners of ticker strip parallelogram
-    // Point at (h, v): x = top.x + h*wallDx, y = (top.y - wallH) + h*wallDy + v*wallH
-    const panelTL = { x: top.x + h0 * wallDx, y: (top.y - wallH) + h0 * wallDy + (vCenter - vHalf) * wallH };
-    const panelTR = { x: top.x + h1 * wallDx, y: (top.y - wallH) + h1 * wallDy + (vCenter - vHalf) * wallH };
-    const panelBR = { x: top.x + h1 * wallDx, y: (top.y - wallH) + h1 * wallDy + (vCenter + vHalf) * wallH };
-    const panelBL = { x: top.x + h0 * wallDx, y: (top.y - wallH) + h0 * wallDy + (vCenter + vHalf) * wallH };
-
-    // Clip to panel bounds, then draw contents inside
+    // Draw dark panel background
     ctx.save();
     ctx.beginPath();
-    ctx.moveTo(panelTL.x, panelTL.y);
-    ctx.lineTo(panelTR.x, panelTR.y);
-    ctx.lineTo(panelBR.x, panelBR.y);
-    ctx.lineTo(panelBL.x, panelBL.y);
+    ctx.moveTo(TL.x, TL.y);
+    ctx.lineTo(TR.x, TR.y);
+    ctx.lineTo(BR.x, BR.y);
+    ctx.lineTo(BL.x, BL.y);
     ctx.closePath();
-    ctx.clip();
-
-    // Dark panel background
     ctx.fillStyle = '#0a0a14';
     ctx.fill();
     ctx.strokeStyle = '#2a2a3a';
@@ -1114,22 +1178,25 @@ class SceneEngine {
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
     ctx.lineWidth = 0.5;
     ctx.beginPath();
-    ctx.moveTo(panelTL.x, panelTL.y);
-    ctx.lineTo(panelTR.x, panelTR.y);
+    ctx.moveTo(TL.x, TL.y);
+    ctx.lineTo(TR.x, TR.y);
     ctx.stroke();
 
+    // Clip to panel for text, then apply isometric transform
+    ctx.beginPath();
+    ctx.moveTo(TL.x, TL.y);
+    ctx.lineTo(TR.x, TR.y);
+    ctx.lineTo(BR.x, BR.y);
+    ctx.lineTo(BL.x, BL.y);
+    ctx.closePath();
+    ctx.clip();
+
     // Isometric transform: text x-axis follows wall direction
-    const ux = wallDx / wallLen;
-    const uy = wallDy / wallLen;
-
-    // Origin: left edge of panel, vertically centered
-    const originX = panelTL.x;
-    const originY = (panelTL.y + panelBL.y) / 2;
-
-    ctx.setTransform(ux, uy, 0, 1, originX, originY);
+    ctx.translate(TL.x, originY);
+    ctx.transform(ux, uy, 0, 1, 0, 0);
 
     // LED text style
-    ctx.font = 'bold 9px monospace';
+    ctx.font = 'bold 18px monospace';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#ff8c00';
 
@@ -1137,13 +1204,7 @@ class SceneEngine {
     ctx.shadowColor = '#ff6600';
     ctx.shadowBlur = 4;
 
-    // Measure and store for scroll logic
-    const textWidth = ctx.measureText(this.tickerMessage).width;
-    this.tickerWidth = textWidth;
-    const panelW = (h1 - h0) * wallLen;
-    this.tickerPanelWidth = panelW;
-
-    // Text enters from right, scrolls left
+    // Text enters from right, scrolls left (tickerWidth measured on message change)
     const textX = panelW - this.tickerScrollX;
     ctx.fillText(this.tickerMessage, textX, 0);
 

@@ -53,6 +53,7 @@ The scene renders a diamond-shaped isometric room with:
 - **Furniture props** placed inside the diamond, depth-sorted with character using painter's algorithm
 - **Shift+click drag** to rearrange furniture (positions auto-save to preferences)
 - **Station system** — character walks to furniture-linked positions when state changes
+- **LED ticker tape** on right wall — retro dot-matrix display scrolling funny state-specific messages (e.g., coding → "HACKING THE MAINFRAME", researching → "PONTIFICATING"). Breaking news interrupts for celebrating/eureka/flow state. Panel geometry precomputed as `TICKER_PANEL` module constant.
 
 ### Sprite System
 
@@ -165,6 +166,7 @@ Docs: https://api.pixellab.ai/mcp/docs
 | **Victory** | `celebrating` mood triggers | front-flip one-shot + confetti | FF victory fanfare |
 | **Idle wandering** | 15s of idle state | Walks to random furniture, shows emoji | — |
 | **Coding music** | 10s sustained coding state | — | Lo-fi 8-bar pentatonic loop (Chrono Trigger style) |
+| **LED ticker** | State/mood changes | Scrolling dot-matrix text on right wall; `>>> BREAKING <<<` for celebrating/eureka/flow | — |
 
 **Demo mode**: Press `D` to cycle through all states and moods automatically (2.5s intervals).
 
@@ -182,3 +184,14 @@ Docs: https://api.pixellab.ai/mcp/docs
 - Window dragging uses `moveWindow` IPC instead of CSS `-webkit-app-region: drag` to avoid Windows system menu hijack
 - The window is transparent and frameless; all UI is canvas-rendered
 - EPIPE errors suppressed in main.js (stdout broken pipe when parent process closes)
+- Single instance lock via `app.requestSingleInstanceLock()` — second launch focuses existing window
+- App icon stamped via `rcedit` in `scripts/afterPack.js` hook (native `signAndEditExecutable` fails without admin privileges on Windows)
+- Character depth sorting uses `charY + 32` for sort position — increase if character renders behind furniture after offset changes
+
+## Station Positioning
+
+Character positions are calculated as `furniture.x + 32 + offsetX, furniture.y + 32 + offsetY` where offsets are in `STATION_CONFIG` (scene-engine.js). Key notes:
+- Saved furniture positions in `%APPDATA%/claude-buddy/preferences.json` override default positions in renderer.js
+- Always check actual saved positions when tuning offsets — they may differ significantly from defaults
+- In isometric view: +X = right, +Y = down; moving "north" = decrease offsetY, "east" = increase offsetX
+- Depth sorting (painter's algorithm) compares `charY + 32` vs `furniture.y + imageHeight` — if character renders behind furniture, increase the +32 constant

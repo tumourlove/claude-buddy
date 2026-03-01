@@ -262,6 +262,7 @@ window.claude.onEureka(() => {
               engine.charDirection === 's' ? 'south' :
               engine.charDirection === 'sw' ? 'west' : 'east';
   engine.playOneShot(`eureka-${dir}`, { emoji: '💡' });
+  engine.breakingNews('eureka');
   sounds.playEureka();
   moodFx.triggerEurekaBurst(engine.charX, engine.charY);
 });
