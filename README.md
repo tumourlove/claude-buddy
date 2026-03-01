@@ -12,10 +12,10 @@ Desktop companion that reacts to your Claude Code activity in real-time. A pixel
 - **Error flinch** — character recoils when tools error out
 - **Eureka moments** — fireball animation when research transitions to coding
 - **Victory celebration** — front-flip with confetti when builds succeed
+- **LED ticker tape** — retro dot-matrix display on the right wall scrolls funny state-specific messages ("HACKING THE MAINFRAME", "SUMMONING DEMONS", "PONTIFICATING") with breaking news interrupts for key moments
 - **Idle wandering** — character explores the room when idle, poking at furniture
 - **Lo-fi coding music** — procedural Chrono Trigger-style 8-bar loop during sustained coding
 - **SNES-style sounds** — procedural audio via Web Audio API for every state and mood
-- **Session stats** — tracks tool calls, time per state, flow duration (accessible from system tray)
 - **Session stats** — tracks tool calls, time per state, flow duration (accessible from system tray)
 - **System tray** — connection status, auto-start with Windows, always-on-top toggle, room visibility
 - **Auto-update** — checks GitHub releases on startup, downloads in background, one-click restart to install
