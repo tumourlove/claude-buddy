@@ -56,10 +56,10 @@ const LWALL_DX = ROOM_LEFT.x - ROOM_TOP.x;   // -200
 const LWALL_DY = ROOM_LEFT.y - ROOM_TOP.y;    // 100
 const LWALL_LEN = Math.sqrt(LWALL_DX * LWALL_DX + LWALL_DY * LWALL_DY);
 
-// Chalkboard panel geometry (parallelogram on left wall, left of window)
-// Window occupies 30%-65% of wall; chalkboard at 5%-27%
-const CHALK_H0 = 0.05, CHALK_H1 = 0.27;
-const CHALK_V_TOP = 0.70, CHALK_V_BOT = 0.25;
+// Chalkboard panel geometry (parallelogram on left wall, past window toward left vertex)
+// Window occupies 10%-42% of wall; chalkboard at 48%-95%
+const CHALK_H0 = 0.48, CHALK_H1 = 0.95;
+const CHALK_V_TOP = 0.85, CHALK_V_BOT = 0.10;
 const _cTlY = (ROOM_TOP.y + LWALL_DY * CHALK_H0) - ROOM.wallH * CHALK_V_TOP;
 const _cBlY = (ROOM_TOP.y + LWALL_DY * CHALK_H0) - ROOM.wallH * CHALK_V_BOT;
 const _cTrY = (ROOM_TOP.y + LWALL_DY * CHALK_H1) - ROOM.wallH * CHALK_V_TOP;
@@ -971,8 +971,8 @@ class SceneEngine {
     // Wall horizontal axis: top→left direction (isometric slant)
     const wallDx = (left.x - top.x);
     const wallDy = (left.y - top.y);
-    // Window position: 30%-65% along wall horizontally, 25%-70% up the wall vertically
-    const wt0 = 0.30, wt1 = 0.65; // horizontal extent along wall
+    // Window position: 10%-42% along wall horizontally, 25%-70% up the wall vertically
+    const wt0 = 0.10, wt1 = 0.42; // horizontal extent along wall
     const wvTop = 0.70, wvBot = 0.25; // vertical (0=bottom of wall, 1=top)
     // Four corners of the window parallelogram
     // Top-left (closer to top vertex, higher on wall)
@@ -1247,8 +1247,6 @@ class SceneEngine {
   }
 
   _drawChalkboard() {
-    if (!this.tasks.length) return;
-
     const ctx = this.ctx;
     const { TL, TR, BR, BL, width: panelW, height: panelH, ux, uy } = CHALK_PANEL;
 
@@ -1274,9 +1272,9 @@ class SceneEngine {
     ctx.closePath();
     ctx.clip();
 
-    // Isometric transform: text follows left wall direction
-    ctx.translate(TL.x, TL.y);
-    ctx.transform(ux, uy, 0, 1, 0, 0);
+    // Isometric transform: text follows left wall direction (reversed so text reads L→R)
+    ctx.translate(TR.x, TR.y);
+    ctx.transform(-ux, -uy, 0, 1, 0, 0);
 
     // Chalk text style
     const fontSize = 7;

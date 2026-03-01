@@ -135,15 +135,8 @@ class ClaudeDetector {
       for (const block of content) {
         if (block.type === 'tool_use') {
           if (this.onToolCall) this.onToolCall(block.name);
-          if (block.name === 'TaskCreate' && block.input) {
-            const id = String(this.tasks.size + 1);
-            this.tasks.set(id, {
-              id,
-              subject: block.input.subject || 'Untitled',
-              status: 'pending',
-            });
-            this._emitTasks();
-          }
+          // TaskCreate: real ID extracted from tool_result below
+
           if (block.name === 'TaskUpdate' && block.input) {
             const id = String(block.input.taskId);
             const task = this.tasks.get(id);
@@ -161,6 +154,15 @@ class ClaudeDetector {
           }
         }
         if (block.type === 'tool_result') {
+          // Parse TaskCreate results to get real task IDs
+          if (typeof block.content === 'string') {
+            const createMatch = block.content.match(/Task #(\d+) created successfully: (.+)/);
+            if (createMatch) {
+              const id = createMatch[1];
+              this.tasks.set(id, { id, subject: createMatch[2], status: 'pending' });
+              this._emitTasks();
+            }
+          }
           const isError = block.is_error ||
             (typeof block.content === 'string' &&
               /Error|FAIL|error|exception|EPERM|ENOENT/i.test(block.content));
