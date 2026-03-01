@@ -21,7 +21,7 @@ Claude Buddy is a desktop companion Electron app featuring an animated pixel-art
 Claude Code JSONL logs (~/.claude/projects/)
   → ClaudeDetector (chokidar file watcher, 500ms polling)
   → State/Mood extracted from tool_use entries
-  → IPC to renderer (claude-state, claude-mood, claude-flow, claude-flinch, claude-eureka, scale-changed)
+  → IPC to renderer (claude-state, claude-mood, claude-flow, claude-flinch, claude-eureka, claude-tasks, scale-changed)
   → SceneEngine (canvas) + SoundSystem (Web Audio API)
 ```
 
@@ -36,7 +36,7 @@ Claude Code JSONL logs (~/.claude/projects/)
 | Module | Role |
 |--------|------|
 | `src/scene-engine.js` | Isometric diamond-room renderer with layered drawing, furniture management, character tweening, animation pool system, and painter's algorithm depth sorting |
-| `src/detector.js` | Watches `~/.claude/projects/` for JSONL changes, maps tool names to states, detects flow state (5+ tools in 15s), error flinch (tool_result errors), eureka moment (research→edit transition) |
+| `src/detector.js` | Watches `~/.claude/projects/` for JSONL changes, maps tool names to states, detects flow state (5+ tools in 15s), error flinch (tool_result errors), eureka moment (research→edit transition), task list parsing (TaskCreate/TaskUpdate) |
 | `src/mood-detector.js` | Keyword/pace analysis with exponential decay scoring; detects frustrated, celebrating, confused, excited, sleepy, determined, proud, curious moods |
 | `src/mood-effects.js` | Mood-reactive particle effects, flow state aura with speed lines, eureka burst, victory confetti |
 | `src/sounds.js` | SNES-style procedural audio via Web Audio API; state sounds, mood sounds, lo-fi coding music loop (Chrono Trigger style), FF victory fanfare |
@@ -53,6 +53,7 @@ The scene renders a diamond-shaped isometric room with:
 - **Furniture props** placed inside the diamond, depth-sorted with character using painter's algorithm
 - **Shift+click drag** to rearrange furniture (positions auto-save to preferences)
 - **Station system** — character walks to furniture-linked positions when state changes
+- **Chalkboard task list** on left wall — classic green chalkboard displaying Claude Code's current task list. Parses `TaskCreate` tool_result for real task IDs and `TaskUpdate` tool_use for status changes. Completed tasks shown dimmed with strikethrough, sorted to bottom. Panel geometry precomputed as `CHALK_PANEL` module constant using left wall direction vectors (`LWALL_DX/DY`). Text rendered with isometric transform `ctx.transform(-ux, -uy, 0, 1, 0, 0)` (negated because left wall has negative X direction). Tasks reset when new JSONL file appears (new session).
 - **LED ticker tape** on right wall — retro dot-matrix display scrolling funny state-specific messages (e.g., coding → "HACKING THE MAINFRAME", researching → "PONTIFICATING"). Breaking news interrupts for celebrating/eureka/flow state. Panel geometry precomputed as `TICKER_PANEL` module constant.
 
 ### Sprite System
@@ -167,6 +168,7 @@ Docs: https://api.pixellab.ai/mcp/docs
 | **Idle wandering** | 15s of idle state | Walks to random furniture, shows emoji | — |
 | **Coding music** | 10s sustained coding state | — | Lo-fi 8-bar pentatonic loop (Chrono Trigger style) |
 | **LED ticker** | State/mood changes | Scrolling dot-matrix text on right wall; `>>> BREAKING <<<` for celebrating/eureka/flow | — |
+| **Chalkboard** | TaskCreate/TaskUpdate tool calls | Green chalkboard on left wall; checkbox list with strikethrough on complete | — |
 
 **Demo mode**: Press `D` to cycle through all states and moods automatically (2.5s intervals).
 
