@@ -267,6 +267,11 @@ window.claude.onEureka(() => {
   moodFx.triggerEurekaBurst(engine.charX, engine.charY);
 });
 
+// Task list updates
+window.claude.onTasksChange((tasks) => {
+  engine.setTasks(tasks);
+});
+
 // ── Demo mode (press D to cycle states & moods) ─────────────────────
 
 let demoTimer = null;
