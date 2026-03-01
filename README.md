@@ -12,6 +12,7 @@ Desktop companion that reacts to your Claude Code activity in real-time. A pixel
 - **Error flinch** — character recoils when tools error out
 - **Eureka moments** — fireball animation when research transitions to coding
 - **Victory celebration** — front-flip with confetti when builds succeed
+- **Chalkboard task list** — green chalkboard on the left wall displays Claude Code's current task list in real-time, with strikethrough on completed tasks
 - **LED ticker tape** — retro dot-matrix display on the right wall scrolls funny state-specific messages ("HACKING THE MAINFRAME", "SUMMONING DEMONS", "PONTIFICATING") with breaking news interrupts for key moments
 - **Idle wandering** — character explores the room when idle, poking at furniture
 - **Lo-fi coding music** — procedural Chrono Trigger-style 8-bar loop during sustained coding
